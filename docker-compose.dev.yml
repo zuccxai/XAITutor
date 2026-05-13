@@ -1,0 +1,51 @@
+# ============================================
+# XAITutor Docker Compose - Development Override
+# ============================================
+# Use with: docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+#
+# This override file provides:
+#   - Hot-reload for both frontend and backend
+#   - Source code mounting for live editing
+#   - Development-friendly logging
+# ============================================
+
+services:
+  xaitutor:
+    build:
+      target: development
+
+    volumes:
+      # Mount backend source code for hot-reload
+      - ./deeptutor:/app/deeptutor:ro
+      - ./deeptutor_cli:/app/deeptutor_cli:ro
+      - ./scripts:/app/scripts:ro
+
+      # 挂载 web_new 前端源码用于热更新。
+      - ./web_new/app:/app/web/app:ro
+      - ./web_new/components:/app/web/components:ro
+      - ./web_new/lib:/app/web/lib:ro
+      - ./web_new/hooks:/app/web/hooks:ro
+      - ./web_new/next.config.js:/app/web/next.config.js:ro
+      - ./web_new/tailwind.config.ts:/app/web/tailwind.config.ts:ro
+      - ./web_new/postcss.config.js:/app/web/postcss.config.js:ro
+
+      # 挂载可写数据目录，输出保留在本地 ./data。
+      - ./data/user:/app/data/user
+      - ./data/knowledge_bases:/app/data/knowledge_bases
+      - ./data/memory:/app/data/memory
+      - ./data/tutorbot:/app/data/tutorbot
+
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_API_BASE=http://localhost:${BACKEND_PORT:-8001}
+
+    # In development, we might want to see logs directly
+    # Uncomment the following to disable log files and see everything in console
+    # logging:
+    #   driver: "json-file"
+    #   options:
+    #     max-size: "10m"
+    #     max-file: "3"
+
+    networks:
+      - xaitutor-network
