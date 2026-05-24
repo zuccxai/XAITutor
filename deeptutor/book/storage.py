@@ -262,14 +262,22 @@ class BookStorage:
         return not root.exists()
 
 
-_storage: BookStorage | None = None
+_storage_instances: dict[str, BookStorage] = {}
 
 
 def get_book_storage() -> BookStorage:
-    global _storage
-    if _storage is None:
-        _storage = BookStorage()
-    return _storage
+    """返回当前用户作用域下的 BookStorage。
+
+    输入：
+        无；当前用户来自请求上下文。
+    输出：
+        返回绑定到当前用户 book 目录的 BookStorage，避免跨用户复用路径。
+    """
+    path_service = get_path_service()
+    key = str(path_service.get_book_dir().resolve())
+    if key not in _storage_instances:
+        _storage_instances[key] = BookStorage()
+    return _storage_instances[key]
 
 
 __all__ = ["BookStorage", "get_book_storage"]

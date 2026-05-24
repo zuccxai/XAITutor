@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import {
   kbHasLiveProgress,
+  kbResourceRef,
   kbNeedsReindex,
   resolveKbStatus,
   type KnowledgeBase,
@@ -77,7 +78,7 @@ export default function KnowledgeBaseList({
         <div className="flex w-full flex-1 flex-col items-center gap-0.5 overflow-y-auto px-1 pb-2">
           {kbs.map((kb) => (
             <CollapsedKbDot
-              key={kb.name}
+              key={kbResourceRef(kb)}
               kb={kb}
               selected={selectedKbName === kb.name}
               isReindexingLocally={
@@ -145,12 +146,12 @@ export default function KnowledgeBaseList({
             tasksByKb[kb.name]?.executing === true;
           return (
             <KnowledgeBaseListItem
-              key={kb.name}
+              key={kbResourceRef(kb)}
               kb={kb}
               selected={selectedKbName === kb.name}
               onSelect={() => onSelect(kb.name)}
-              onSetDefault={() => onSetDefault(kb.name)}
-              onDelete={() => onDelete(kb.name)}
+              onSetDefault={() => onSetDefault(kbResourceRef(kb))}
+              onDelete={() => onDelete(kbResourceRef(kb))}
               isReindexingLocally={isReindexingLocally}
             />
           );

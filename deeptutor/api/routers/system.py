@@ -6,9 +6,11 @@ Manages system status checks and model connection tests
 from datetime import datetime
 import time
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
+from deeptutor.api.routers.auth import require_admin
+from deeptutor.multi_user.context import get_current_user
 from deeptutor.services.config import resolve_search_runtime_config
 from deeptutor.services.embedding import get_embedding_client, get_embedding_config
 from deeptutor.services.llm import complete as llm_complete
@@ -130,16 +132,25 @@ async def get_system_status():
         result["search"]["status"] = "error"
         result["search"]["error"] = str(e)
 
+    # Non-admin users have no need to know which model the admin configured;
+    # exposing the name leaks operational detail and would let curious users
+    # fingerprint the deployment. Strip the identifying fields.
+    if not get_current_user().is_admin:
+        for section in ("llm", "embeddings"):
+            result[section].pop("model", None)
+        result["search"].pop("provider", None)
+
     return result
 
 
 @router.post("/test/llm", response_model=TestResponse)
-async def test_llm_connection():
-    """
-    Test LLM model connection by sending a simple completion request
+async def test_llm_connection(_: object = Depends(require_admin)):
+    """测试 LLM 模型连接。
 
-    Returns:
-        Test result with success status and response time
+    输入：
+        _: 当前请求必须通过管理员权限校验。
+    输出：
+        返回连接测试结果、响应耗时和管理员可见的模型信息。
     """
     start_time = time.time()
 
@@ -202,12 +213,13 @@ async def test_llm_connection():
 
 
 @router.post("/test/embeddings", response_model=TestResponse)
-async def test_embeddings_connection():
-    """
-    Test Embeddings model connection by sending a simple embedding request
+async def test_embeddings_connection(_: object = Depends(require_admin)):
+    """测试 Embedding 模型连接。
 
-    Returns:
-        Test result with success status and response time
+    输入：
+        _: 当前请求必须通过管理员权限校验。
+    输出：
+        返回连接测试结果、响应耗时和管理员可见的模型信息。
     """
     start_time = time.time()
 
@@ -259,7 +271,14 @@ async def test_embeddings_connection():
 
 
 @router.post("/test/search", response_model=TestResponse)
-async def test_search_connection():
+async def test_search_connection(_: object = Depends(require_admin)):
+    """测试搜索服务连接。
+
+    输入：
+        _: 当前请求必须通过管理员权限校验。
+    输出：
+        返回搜索服务测试结果、响应耗时和管理员可见的 provider 信息。
+    """
     start_time = time.time()
 
     try:

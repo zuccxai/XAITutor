@@ -22,6 +22,9 @@ export interface ProgressInfo {
   total?: number;
   percent?: number;
   progress_percent?: number;
+  indexed_count?: number;
+  index_changed?: boolean;
+  index_action?: string;
 }
 
 export interface IndexVersion {
@@ -35,6 +38,8 @@ export interface IndexVersion {
 }
 
 export interface KnowledgeBase {
+  id?: string;
+  resource_id?: string;
   name: string;
   is_default?: boolean;
   status?: string;
@@ -42,6 +47,9 @@ export interface KnowledgeBase {
   metadata?: {
     created_at?: string;
     last_updated?: string;
+    last_indexed_at?: string;
+    last_indexed_count?: number;
+    last_indexed_action?: string;
     rag_provider?: string;
     needs_reindex?: boolean;
     embedding_model?: string;
@@ -62,6 +70,11 @@ export interface KnowledgeBase {
     active_signature?: string | null;
     active_match?: boolean;
   };
+  source?: "admin" | "user";
+  assigned?: boolean;
+  read_only?: boolean;
+  provenance_label?: string;
+  available?: boolean;
 }
 
 export interface ValidatedSelectionFile {
@@ -126,10 +139,17 @@ export const kbNeedsReindex = (kb: KnowledgeBase): boolean =>
   Boolean(kb.statistics?.needs_reindex) ||
   resolveKbStatus(kb) === "needs_reindex";
 
+export const kbIsReadOnly = (kb: KnowledgeBase): boolean =>
+  Boolean(kb.read_only || kb.assigned);
+
+export const kbResourceRef = (kb: KnowledgeBase): string =>
+  kb.id || kb.resource_id || kb.name;
+
 export const kbIsUploadable = (kb: KnowledgeBase): boolean =>
-  resolveKbStatus(kb) === "ready" && !kbNeedsReindex(kb);
+  !kbIsReadOnly(kb) && resolveKbStatus(kb) === "ready" && !kbNeedsReindex(kb);
 
 export const kbCanReindex = (kb: KnowledgeBase): boolean => {
+  if (kbIsReadOnly(kb)) return false;
   const status = resolveKbStatus(kb);
   const hasSourceFiles =
     typeof kb.statistics?.raw_documents === "number"

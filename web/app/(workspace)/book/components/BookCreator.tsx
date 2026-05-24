@@ -21,6 +21,7 @@ import {
   listKnowledgeBases,
   type KnowledgeBaseSummary,
 } from "@/lib/knowledge-api";
+import { kbResourceRef } from "@/lib/knowledge-helpers";
 import {
   getNotebook,
   listCategories,
@@ -256,6 +257,10 @@ export default function BookCreator({
       return next;
     });
   };
+
+  const selectedKbLabels = Array.from(selectedKbs).map(
+    (ref) => kbs.find((kb) => kbResourceRef(kb) === ref)?.name || ref,
+  );
 
   // ── lazy children loaders ────────────────────────────────────────
   const ensureNotebookRecords = async (id: string) => {
@@ -546,11 +551,11 @@ export default function BookCreator({
                       "No knowledge bases yet. Create one in the Knowledge page first.",
                     )}
                     items={kbs.map((kb) => ({
-                      key: kb.name,
+                      key: kbResourceRef(kb),
                       primary: kb.name,
                       secondary: kb.is_default ? t("default") : kb.status || "",
-                      checked: selectedKbs.has(kb.name),
-                      onToggle: () => toggleKb(kb.name),
+                      checked: selectedKbs.has(kbResourceRef(kb)),
+                      onToggle: () => toggleKb(kbResourceRef(kb)),
                     }))}
                   />
                 )}
@@ -758,7 +763,7 @@ export default function BookCreator({
           <ProposalForm
             proposal={currentProposal}
             onChange={setEditProposal}
-            selectedKbs={Array.from(selectedKbs)}
+            selectedKbs={selectedKbLabels}
           />
           <div className="flex justify-end">
             <button

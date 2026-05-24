@@ -55,6 +55,29 @@ class CapabilityExecuteRequest(BaseModel):
     attachments: list[dict[str, Any]] = []
 
 
+def _authorized_knowledge_bases(raw_items: list[str]) -> list[str]:
+    """校验并归一化能力调试请求中的知识库引用。
+
+    输入：
+        raw_items: 前端传入的知识库名称或带作用域的资源 ID。
+    输出：
+        返回当前用户有权读取的知识库资源 ID 列表。
+    """
+    from deeptutor.multi_user.knowledge_access import resolve_kb
+
+    authorized: list[str] = []
+    for raw in raw_items or []:
+        if not isinstance(raw, str):
+            continue
+        ref = raw.strip()
+        if not ref:
+            continue
+        resource = resolve_kb(ref, require_write=False)
+        if resource.id not in authorized:
+            authorized.append(resource.id)
+    return authorized
+
+
 @router.get("/list")
 async def list_plugins():
     tool_registry = get_tool_registry()
@@ -301,12 +324,17 @@ async def _execute_capability_stream(
         )
         for a in body.attachments
     ]
+    try:
+        knowledge_bases = _authorized_knowledge_bases(body.knowledge_bases)
+    except HTTPException as exc:
+        yield _sse("error", {"detail": exc.detail, "status_code": exc.status_code})
+        return
 
     ctx = UnifiedContext(
         user_message=body.content,
         enabled_tools=body.tools,
         active_capability=capability_name,
-        knowledge_bases=body.knowledge_bases,
+        knowledge_bases=knowledge_bases,
         attachments=attachments,
         config_overrides=body.config,
         language=body.language,

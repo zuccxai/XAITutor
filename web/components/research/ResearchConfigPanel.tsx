@@ -18,7 +18,7 @@ interface ResearchConfigPanelProps {
   value: DeepResearchFormConfig;
   errors: Record<string, string>;
   collapsed: boolean;
-  onChange: (next: DeepResearchFormConfig) => void;
+  onChangeAction: (next: DeepResearchFormConfig) => void;
   onToggleCollapsed: () => void;
 }
 
@@ -80,14 +80,14 @@ export default memo(function ResearchConfigPanel({
   value,
   errors: _errors,
   collapsed,
-  onChange,
+  onChangeAction,
   onToggleCollapsed,
 }: ResearchConfigPanelProps) {
   const { t } = useTranslation();
   const update = <K extends keyof DeepResearchFormConfig>(
     key: K,
     next: DeepResearchFormConfig[K],
-  ) => onChange({ ...value, [key]: next });
+  ) => onChangeAction({ ...value, [key]: next });
 
   const rawSummary = summarizeResearchConfig(value, t);
   const summary =

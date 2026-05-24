@@ -35,6 +35,8 @@ import type { SelectedRecord } from "@/lib/notebook-selection-types";
 import type { DeepQuestionFormConfig } from "@/lib/quiz-types";
 import type { MathAnimatorFormConfig } from "@/lib/math-animator-types";
 import type { VisualizeFormConfig } from "@/lib/visualize-types";
+import type { LLMSelection } from "@/lib/unified-ws";
+import type { LLMOption } from "@/lib/llm-options";
 import type {
   DeepResearchFormConfig,
   ResearchSource,
@@ -42,6 +44,8 @@ import type {
 import ChatSpaceMenu from "@/components/chat/space/ChatSpaceMenu";
 import type { SpaceMemoryFile } from "@/lib/space-items";
 import type { SelectedBookReference } from "@/lib/book-references";
+import { kbResourceRef } from "@/lib/knowledge-helpers";
+import ModelSelector from "./ModelSelector";
 
 type SpaceSelectionCounts = {
   chatHistory: number;
@@ -83,7 +87,12 @@ interface PendingAttachment {
 }
 
 interface KnowledgeBase {
+  id?: string;
+  resource_id?: string;
   name: string;
+  is_default?: boolean;
+  source?: "admin" | "user";
+  assigned?: boolean;
 }
 
 interface CapabilityDef {
@@ -127,6 +136,11 @@ export default memo(function ChatComposer({
   selectedTools,
   ragActive,
   knowledgeBases,
+  llmOptions,
+  activeLLMDefault,
+  llmSelection,
+  llmOptionsLoading,
+  llmOptionsError,
   selectedNotebookRecords,
   selectedBookReferences,
   selectedHistorySessions,
@@ -154,6 +168,7 @@ export default memo(function ChatComposer({
   onSetToolMenuOpen,
   onSetSpaceMenuOpen,
   onSetKB,
+  onSelectLLM,
   onSelectNotebookPicker,
   onSelectBookPicker,
   onSelectHistoryPicker,
@@ -207,6 +222,11 @@ export default memo(function ChatComposer({
   selectedTools: Set<string>;
   ragActive: boolean;
   knowledgeBases: KnowledgeBase[];
+  llmOptions: LLMOption[];
+  activeLLMDefault: LLMSelection | null;
+  llmSelection: LLMSelection | null;
+  llmOptionsLoading: boolean;
+  llmOptionsError: boolean;
   selectedNotebookRecords: SelectedRecord[];
   selectedBookReferences: SelectedBookReference[];
   selectedHistorySessions: SelectedHistorySession[];
@@ -238,6 +258,7 @@ export default memo(function ChatComposer({
   onSetToolMenuOpen: (open: boolean | ((prev: boolean) => boolean)) => void;
   onSetSpaceMenuOpen: (open: boolean | ((prev: boolean) => boolean)) => void;
   onSetKB: (kb: string) => void;
+  onSelectLLM: (selection: LLMSelection | null) => void;
   onSelectNotebookPicker: () => void;
   onSelectBookPicker: () => void;
   onSelectHistoryPicker: () => void;
@@ -831,6 +852,15 @@ export default memo(function ChatComposer({
               </div>
 
               <div className="ml-auto flex shrink-0 items-center gap-1.5">
+                <ModelSelector
+                  options={llmOptions}
+                  activeDefault={activeLLMDefault}
+                  value={llmSelection}
+                  loading={llmOptionsLoading}
+                  error={llmOptionsError}
+                  onChangeAction={onSelectLLM}
+                />
+
                 <select
                   value={stateKnowledgeBase}
                   onChange={(e) => onSetKB(e.target.value)}
@@ -854,11 +884,18 @@ export default memo(function ChatComposer({
                   }}
                 >
                   <option value="">{ragActive ? t("No KB") : "—"}</option>
-                  {knowledgeBases.map((kb) => (
-                    <option key={kb.name} value={kb.name}>
-                      {kb.name}
-                    </option>
-                  ))}
+                  {knowledgeBases.map((kb) => {
+                    const ref = kbResourceRef(kb);
+                    return (
+                      <option key={ref} value={ref}>
+                        {kb.name}
+                        {kb.is_default ? ` (${t("default")})` : ""}
+                        {kb.assigned || kb.source === "admin"
+                          ? ` (${t("Assigned")})`
+                          : ""}
+                      </option>
+                    );
+                  })}
                 </select>
 
                 {isStreaming ? (
@@ -903,7 +940,7 @@ export default memo(function ChatComposer({
               {isQuizMode ? (
                 <QuizConfigPanel
                   value={quizConfig}
-                  onChange={onChangeQuizConfig}
+                  onChangeAction={onChangeQuizConfig}
                   uploadedPdf={quizPdf}
                   onUploadPdf={onUploadQuizPdf}
                   collapsed={panelCollapsed}
@@ -912,14 +949,14 @@ export default memo(function ChatComposer({
               ) : isMathAnimatorMode ? (
                 <MathAnimatorConfigPanel
                   value={mathAnimatorConfig}
-                  onChange={onChangeMathAnimatorConfig}
+                  onChangeAction={onChangeMathAnimatorConfig}
                   collapsed={panelCollapsed}
                   onToggleCollapsed={onTogglePanelCollapsed}
                 />
               ) : isVisualizeMode ? (
                 <VisualizeConfigPanel
                   value={visualizeConfig}
-                  onChange={onChangeVisualizeConfig}
+                  onChangeAction={onChangeVisualizeConfig}
                   collapsed={panelCollapsed}
                   onToggleCollapsed={onTogglePanelCollapsed}
                 />
@@ -928,7 +965,7 @@ export default memo(function ChatComposer({
                   value={researchConfig}
                   errors={researchValidationErrors}
                   collapsed={panelCollapsed}
-                  onChange={onChangeResearchConfig}
+                  onChangeAction={onChangeResearchConfig}
                   onToggleCollapsed={onTogglePanelCollapsed}
                 />
               )}

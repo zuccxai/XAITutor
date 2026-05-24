@@ -33,6 +33,7 @@ import {
   readFileAsDataUrl,
 } from "@/lib/file-attachments";
 import { listKnowledgeBases } from "@/lib/knowledge-api";
+import { kbResourceRef } from "@/lib/knowledge-helpers";
 import type { StreamEvent } from "@/lib/unified-ws";
 import {
   filterFrontendTools,
@@ -154,8 +155,12 @@ interface CapabilityExecResult {
 }
 
 interface KnowledgeBase {
+  id?: string;
+  resource_id?: string;
   name: string;
   is_default?: boolean;
+  source?: "admin" | "user";
+  assigned?: boolean;
 }
 
 interface TesterMessage {
@@ -476,12 +481,18 @@ function ToolExecutor({
           className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-[13px] text-[var(--foreground)] outline-none focus:border-[var(--primary)]/40"
         >
           <option value="">{t("Select knowledge base...")}</option>
-          {knowledgeBases.map((kb) => (
-            <option key={kb.name} value={kb.name}>
-              {kb.name}
-              {kb.is_default ? ` (${t("default")})` : ""}
-            </option>
-          ))}
+          {knowledgeBases.map((kb) => {
+            const ref = kbResourceRef(kb);
+            return (
+              <option key={ref} value={ref}>
+                {kb.name}
+                {kb.is_default ? ` (${t("default")})` : ""}
+                {kb.assigned || kb.source === "admin"
+                  ? ` (${t("Assigned")})`
+                  : ""}
+              </option>
+            );
+          })}
         </select>
       );
     }
@@ -1361,7 +1372,7 @@ function DeepResearchTester({
         value={config}
         errors={validation.errors}
         collapsed={false}
-        onChange={onConfigChange}
+        onChangeAction={onConfigChange}
         onToggleCollapsed={() => {}}
       />
       <div className="rounded-xl border border-[var(--border)] bg-[var(--background)] p-3">
@@ -1809,15 +1820,15 @@ export default function PlaygroundPage() {
     else enabledSet.add(toolName);
 
     const defaultKb =
-      knowledgeBases.find((kb) => kb.is_default)?.name ??
-      knowledgeBases[0]?.name ??
+      knowledgeBases.find((kb) => kb.is_default) ??
+      knowledgeBases[0] ??
       "";
 
     persistCapabilityConfig(activeCapability.name, {
       enabledTools: allowedTools.filter((name) => enabledSet.has(name)),
       knowledgeBase:
         activeCapabilityConfig.knowledgeBase ||
-        (enabledSet.has("rag") ? defaultKb : ""),
+        (enabledSet.has("rag") && defaultKb ? kbResourceRef(defaultKb) : ""),
       config: activeCapabilityConfig.config,
     });
   };
@@ -2045,14 +2056,20 @@ export default function PlaygroundPage() {
                                     <option value="">
                                       {t("Select knowledge base...")}
                                     </option>
-                                    {knowledgeBases.map((kb) => (
-                                      <option key={kb.name} value={kb.name}>
-                                        {kb.name}
-                                        {kb.is_default
-                                          ? ` (${t("default")})`
-                                          : ""}
-                                      </option>
-                                    ))}
+                                    {knowledgeBases.map((kb) => {
+                                      const ref = kbResourceRef(kb);
+                                      return (
+                                        <option key={ref} value={ref}>
+                                          {kb.name}
+                                          {kb.is_default
+                                            ? ` (${t("default")})`
+                                            : ""}
+                                          {kb.assigned || kb.source === "admin"
+                                            ? ` (${t("Assigned")})`
+                                            : ""}
+                                        </option>
+                                      );
+                                    })}
                                   </select>
                                 </div>
                               </div>

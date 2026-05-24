@@ -14,14 +14,14 @@ import {
 
 interface VisualizeConfigPanelProps {
   value: VisualizeFormConfig;
-  onChange: (next: VisualizeFormConfig) => void;
+  onChangeAction: (next: VisualizeFormConfig) => void;
   collapsed: boolean;
   onToggleCollapsed: () => void;
 }
 
 export default memo(function VisualizeConfigPanel({
   value,
-  onChange,
+  onChangeAction,
   collapsed,
   onToggleCollapsed,
 }: VisualizeConfigPanelProps) {
@@ -38,7 +38,7 @@ export default memo(function VisualizeConfigPanel({
         <select
           value={value.render_mode}
           onChange={(e) =>
-            onChange({
+            onChangeAction({
               ...value,
               render_mode: e.target.value as VisualizeFormConfig["render_mode"],
             })

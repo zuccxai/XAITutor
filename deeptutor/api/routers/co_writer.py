@@ -13,12 +13,12 @@ from pydantic import BaseModel
 
 from deeptutor.agents.chat.agentic_pipeline import AgenticChatPipeline
 from deeptutor.co_writer.edit_agent import (
-    TOOL_CALLS_DIR,
     EditAgent,
     load_history,
     print_stats,
     save_history,
     save_tool_call,
+    tool_calls_dir,
 )
 from deeptutor.co_writer.storage import (
     CoWriterDocument,
@@ -191,6 +191,14 @@ def _clean_react_edit_output(text: str, *, binding: str | None, model: str | Non
 def _prepare_react_edit_request(
     request: ReactEditRequest, language: str
 ) -> tuple[str, str, list[str], list[str], str]:
+    """准备协同写作编辑请求。
+
+    输入：
+        request: 前端传入的编辑请求。
+        language: 当前界面语言。
+    输出：
+        返回选中文本、编辑指令、启用工具、已鉴权知识库资源 ID 和最终 prompt。
+    """
     tools = _normalize_react_edit_tools(request.tools)
     instruction = request.instruction.strip()
     if request.mode == "none" and not instruction:
@@ -210,7 +218,11 @@ def _prepare_react_edit_request(
         )
         raise HTTPException(status_code=400, detail=detail)
 
-    knowledge_bases = [request.kb_name] if request.kb_name and "rag" in tools else []
+    knowledge_bases: list[str] = []
+    if request.kb_name and "rag" in tools:
+        from deeptutor.multi_user.knowledge_access import resolve_kb
+
+        knowledge_bases = [resolve_kb(request.kb_name, require_write=False).id]
     prompt = _build_react_edit_prompt(
         selected_text=selected_text,
         instruction=instruction,
@@ -497,7 +509,7 @@ async def get_tool_call(operation_id: str):
     """Get tool call details"""
     try:
         # Find matching file
-        for filepath in TOOL_CALLS_DIR.glob(f"{operation_id}_*.json"):
+        for filepath in tool_calls_dir().glob(f"{operation_id}_*.json"):
             with open(filepath, encoding="utf-8") as f:
                 return json.load(f)
         raise HTTPException(status_code=404, detail="Tool call not found")

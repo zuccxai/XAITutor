@@ -146,7 +146,7 @@ export default function CreateKbModal({
           </label>
           <FileDropZone
             files={files}
-            onChange={setFiles}
+            onChangeAction={setFiles}
             uploadPolicy={uploadPolicy}
             disabled={submitting}
           />

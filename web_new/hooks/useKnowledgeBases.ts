@@ -4,6 +4,12 @@ import { useCallback, useEffect, useState } from "react";
 import { listKnowledgeBases } from "@/lib/api/knowledge";
 import type { KnowledgeBaseSummary } from "@/lib/types/knowledge";
 
+/**
+ * 加载知识库列表。
+ *
+ * 输入：无。
+ * 输出：返回知识库列表、加载状态、错误信息和刷新函数。
+ */
 export function useKnowledgeBases() {
   const [items, setItems] = useState<KnowledgeBaseSummary[]>([]);
   const [loading, setLoading] = useState(false);

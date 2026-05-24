@@ -36,7 +36,7 @@ def register(app: typer.Typer) -> None:
         kb: list[str] = typer.Option([], "--kb", help="Pre-attach knowledge base(s)."),
         notebook_ref: list[str] = typer.Option([], "--notebook-ref", help="Notebook references."),
         history_ref: list[str] = typer.Option([], "--history-ref", help="Referenced session ids."),
-        language: str = typer.Option("zh", "--language", "-l", help="Response language."),
+        language: str = typer.Option("en", "--language", "-l", help="Response language."),
     ) -> None:
         """Enter interactive chat REPL. Use `deeptutor run` for single-turn execution."""
         if ctx.invoked_subcommand is not None:

@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Star, Trash2 } from "lucide-react";
 import {
   kbHasLiveProgress,
+  kbIsReadOnly,
   kbNeedsReindex,
   resolveKbStatus,
   resolveProgressPercent,
@@ -34,6 +35,7 @@ export default function KnowledgeBaseListItem({
   const isLive = kbHasLiveProgress(kb) || isReindexingLocally;
   const isError = status === "error";
   const isReady = status === "ready" && !needsReindex;
+  const readOnly = kbIsReadOnly(kb);
   const percent = resolveProgressPercent(kb.progress);
   const docCount = kb.statistics?.raw_documents ?? 0;
 
@@ -81,6 +83,11 @@ export default function KnowledgeBaseListItem({
             <span className="truncate text-[13px] font-medium text-[var(--foreground)]">
               {kb.name}
             </span>
+            {readOnly && (
+              <span className="shrink-0 rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-medium text-emerald-700 dark:text-emerald-300">
+                {kb.provenance_label || t("Assigned")}
+              </span>
+            )}
           </div>
           <div className="mt-0.5 truncate text-[11px] text-[var(--muted-foreground)]">
             {subtitle}
@@ -92,7 +99,7 @@ export default function KnowledgeBaseListItem({
             selected ? "" : "opacity-0 group-hover:opacity-100"
           } transition-opacity`}
         >
-          {!kb.is_default && (
+          {!kb.is_default && !readOnly && (
             <button
               type="button"
               onClick={(event) => {
@@ -111,8 +118,13 @@ export default function KnowledgeBaseListItem({
               event.stopPropagation();
               onDelete();
             }}
-            title={t("Delete")}
-            className="rounded p-1 text-[var(--muted-foreground)] hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30"
+            disabled={readOnly}
+            title={
+              readOnly
+                ? t("Assigned knowledge bases are read-only")
+                : t("Delete")
+            }
+            className="rounded p-1 text-[var(--muted-foreground)] hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-30 dark:hover:bg-red-950/30"
           >
             <Trash2 className="h-3 w-3" />
           </button>

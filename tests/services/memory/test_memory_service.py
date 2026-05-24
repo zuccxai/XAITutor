@@ -5,13 +5,6 @@ from deeptutor.services.session.sqlite_store import SQLiteSessionStore
 
 
 def _make_service(tmp_path):
-    """构建使用临时目录的长期记忆服务。
-
-    输入：
-        tmp_path: pytest 提供的临时目录。
-    输出：
-        返回 MemoryService 测试实例。
-    """
     store = SQLiteSessionStore(tmp_path / "chat_history.db")
     return MemoryService(
         path_service=type(
@@ -24,13 +17,6 @@ def _make_service(tmp_path):
 
 
 def test_memory_service_snapshot_is_empty_without_file(tmp_path) -> None:
-    """验证没有文件时快照为空。
-
-    输入：
-        tmp_path: pytest 提供的临时目录。
-    输出：
-        无；通过断言验证空快照。
-    """
     service = _make_service(tmp_path)
     snapshot = service.read_snapshot()
 
@@ -40,41 +26,64 @@ def test_memory_service_snapshot_is_empty_without_file(tmp_path) -> None:
     assert snapshot.profile_updated_at is None
 
 
-async def _no_change_stream(**_kwargs):
-    """模拟模型判断长期记忆无需更新。
+def test_memory_context_requires_explicit_files(tmp_path) -> None:
+    service = _make_service(tmp_path)
+    service.write_file("summary", "## Current Focus\n- Linear algebra")
+    service.write_file("profile", "## Preferences\n- Concise answers")
 
-    输入：
-        _kwargs: llm_stream 调用参数。
-    输出：
-        异步产出 NO_CHANGE。
-    """
+    assert service.build_memory_context() == ""
+    assert service.build_memory_context([]) == ""
+
+
+def test_memory_context_can_include_summary_only(tmp_path) -> None:
+    service = _make_service(tmp_path)
+    service.write_file("summary", "## Current Focus\n- Linear algebra")
+    service.write_file("profile", "## Preferences\n- Concise answers")
+
+    context = service.build_memory_context(["summary"])
+
+    assert "## Background Memory" in context
+    assert "### Learning Context" in context
+    assert "Linear algebra" in context
+    assert "### User Profile" not in context
+    assert "Concise answers" not in context
+
+
+def test_memory_context_can_include_profile_only(tmp_path) -> None:
+    service = _make_service(tmp_path)
+    service.write_file("summary", "## Current Focus\n- Linear algebra")
+    service.write_file("profile", "## Preferences\n- Concise answers")
+
+    context = service.build_memory_context(["profile"])
+
+    assert "## Background Memory" in context
+    assert "### User Profile" in context
+    assert "Concise answers" in context
+    assert "### Learning Context" not in context
+    assert "Linear algebra" not in context
+
+
+async def _no_change_stream(**_kwargs):
     yield "NO_CHANGE"
 
 
-async def _rewrite_stream(**kwargs):
-    """模拟模型按中文标题重写长期记忆。
+async def _rewrite_stream(**_kwargs):
+    yield "## Preferences\n- Prefer concise answers.\n\n## Context\n- Working on DeepTutor memory."
 
-    输入：
-        kwargs: llm_stream 调用参数，其中 prompt 用于区分文件类型。
-    输出：
-        异步产出中文 Markdown 长期记忆。
-    """
-    prompt = str(kwargs.get("prompt", ""))
-    if "用户画像" in prompt:
-        yield "## 偏好\n- 用户偏好简洁回答。"
-    else:
-        yield "## 当前关注\n- 正在完善 DeepTutor 长期记忆。"
+
+async def _thinking_rewrite_stream(**_kwargs):
+    yield "<think>private reasoning</think>\n## Preferences\n- Prefer concise answers."
+
+
+async def _unclosed_thinking_stream(**_kwargs):
+    yield "## Current Focus\n- Algebra\n<think>unfinished private reasoning"
+
+
+async def _invalid_profile_stream(**_kwargs):
+    yield "The derivative of x^2 is 2x. This is an answer, not a profile."
 
 
 def test_memory_service_refresh_turn_writes_rewritten_document(monkeypatch, tmp_path) -> None:
-    """验证单轮刷新会写入中文长期记忆。
-
-    输入：
-        monkeypatch: pytest monkeypatch fixture。
-        tmp_path: pytest 提供的临时目录。
-    输出：
-        无；通过断言验证文件内容。
-    """
     service = _make_service(tmp_path)
     monkeypatch.setattr("deeptutor.services.memory.service.llm_stream", _rewrite_stream)
 
@@ -91,69 +100,14 @@ def test_memory_service_refresh_turn_writes_rewritten_document(monkeypatch, tmp_
     )
 
     assert result.changed is True
-    assert "简洁回答" in result.content
-    assert "## 偏好" in service.read_profile()
-    assert "## 当前关注" in service.read_summary()
-
-
-def test_memory_service_refresh_turn_prompts_stay_chinese_with_english_language(
-    monkeypatch,
-    tmp_path,
-) -> None:
-    """验证传入英文语言偏好时长期记忆 prompt 仍要求中文记录。
-
-    输入：
-        monkeypatch: pytest monkeypatch fixture。
-        tmp_path: pytest 提供的临时目录。
-    输出：
-        无；通过断言验证 prompt 语言约束。
-    """
-    service = _make_service(tmp_path)
-    captured_prompts: list[str] = []
-
-    async def capture_stream(**kwargs):
-        """捕获 llm_stream prompt 并返回无更新。
-
-        输入：
-            kwargs: llm_stream 调用参数。
-        输出：
-            异步产出 NO_CHANGE。
-        """
-        captured_prompts.append(str(kwargs.get("prompt", "")))
-        yield "NO_CHANGE"
-
-    monkeypatch.setattr("deeptutor.services.memory.service.llm_stream", capture_stream)
-
-    import asyncio
-
-    result = asyncio.run(
-        service.refresh_from_turn(
-            user_message="Remember I use pytest often.",
-            assistant_message="Got it.",
-            session_id="s1",
-            capability="chat",
-            language="en",
-        )
-    )
-
-    assert result.changed is False
-    assert captured_prompts
-    assert all("输出必须使用简体中文" in prompt for prompt in captured_prompts)
-    assert all("不要使用英文标题" in prompt for prompt in captured_prompts)
+    assert "concise answers" in result.content
+    assert service._path("profile").exists() or service._path("summary").exists()
 
 
 def test_memory_service_refresh_turn_skips_when_model_returns_no_change(
     monkeypatch,
     tmp_path,
 ) -> None:
-    """验证模型返回 NO_CHANGE 时不写入长期记忆文件。
-
-    输入：
-        monkeypatch: pytest monkeypatch fixture。
-        tmp_path: pytest 提供的临时目录。
-    输出：
-        无；通过断言验证没有文件生成。
-    """
     service = _make_service(tmp_path)
     monkeypatch.setattr("deeptutor.services.memory.service.llm_stream", _no_change_stream)
 
@@ -173,3 +127,83 @@ def test_memory_service_refresh_turn_skips_when_model_returns_no_change(
     assert result.content == ""
     assert not service._path("profile").exists()
     assert not service._path("summary").exists()
+
+
+def test_memory_service_refresh_strips_thinking_tags(monkeypatch, tmp_path) -> None:
+    service = _make_service(tmp_path)
+    monkeypatch.setattr("deeptutor.services.memory.service.llm_stream", _thinking_rewrite_stream)
+
+    import asyncio
+
+    result = asyncio.run(
+        service.refresh_from_turn(
+            user_message="Please remember that I like concise answers.",
+            assistant_message="Sure.",
+            session_id="s1",
+            capability="chat",
+            language="en",
+        )
+    )
+
+    assert result.changed is True
+    profile = service.read_profile()
+    summary = service.read_summary()
+    assert "Prefer concise answers" in profile
+    assert "<think" not in profile.lower()
+    assert "private reasoning" not in profile
+    assert "<think" not in summary.lower()
+    assert "private reasoning" not in summary
+
+
+def test_memory_service_refresh_strips_unclosed_thinking_tags(monkeypatch, tmp_path) -> None:
+    service = _make_service(tmp_path)
+    monkeypatch.setattr("deeptutor.services.memory.service.llm_stream", _unclosed_thinking_stream)
+
+    import asyncio
+
+    asyncio.run(
+        service.refresh_from_turn(
+            user_message="Study algebra.",
+            assistant_message="Done.",
+            session_id="s1",
+            capability="chat",
+            language="en",
+        )
+    )
+
+    assert service.read_profile() == ""
+    assert service.read_summary() == "## Current Focus\n- Algebra"
+    assert "<think" not in service.read_summary().lower()
+
+
+def test_memory_service_rejects_invalid_profile_rewrite(monkeypatch, tmp_path) -> None:
+    service = _make_service(tmp_path)
+    monkeypatch.setattr("deeptutor.services.memory.service.llm_stream", _invalid_profile_stream)
+
+    import asyncio
+
+    changed = asyncio.run(
+        service._rewrite_one(
+            "profile",
+            "[User]\nWhat is d/dx x^2?\n\n[Assistant]\n2x",
+            "en",
+        )
+    )
+
+    assert changed is False
+    assert service.read_profile() == ""
+    assert not service._path("profile").exists()
+
+
+def test_memory_service_repairs_existing_thinking_tags_on_read(tmp_path) -> None:
+    service = _make_service(tmp_path)
+    service._path("summary").parent.mkdir(parents=True, exist_ok=True)
+    service._path("summary").write_text(
+        "## Current Focus\n- Algebra\n<think>old private reasoning</think>",
+        encoding="utf-8",
+    )
+
+    assert service.read_summary() == "## Current Focus\n- Algebra"
+    persisted = service._path("summary").read_text(encoding="utf-8")
+    assert "<think" not in persisted.lower()
+    assert "old private reasoning" not in persisted

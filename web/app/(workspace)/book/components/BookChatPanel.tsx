@@ -118,11 +118,17 @@ export default function BookChatPanel({
   const isComposingRef = useRef(false);
 
   useEffect(() => {
+    let cancelled = false;
     const raw = window.localStorage.getItem("deeptutor.bookChat.width");
     const parsed = Number(raw);
     if (Number.isFinite(parsed) && parsed >= 300 && parsed <= 720) {
-      setWidth(parsed);
+      queueMicrotask(() => {
+        if (!cancelled) setWidth(parsed);
+      });
     }
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -130,9 +136,10 @@ export default function BookChatPanel({
   }, [width]);
 
   useEffect(() => {
+    const retryTimers = retryTimersRef.current;
     return () => {
-      retryTimersRef.current.forEach((timer) => clearTimeout(timer));
-      retryTimersRef.current.clear();
+      retryTimers.forEach((timer) => clearTimeout(timer));
+      retryTimers.clear();
       clientRef.current?.disconnect();
       clientRef.current = null;
     };
@@ -145,10 +152,13 @@ export default function BookChatPanel({
     clientRef.current?.disconnect();
     clientRef.current = null;
     sessionIdRef.current = initialSessionId || null;
-    setMessages([]);
-    setAttachments([]);
-    setAttachmentError(null);
-    setBusy(false);
+    queueMicrotask(() => {
+      if (cancelled) return;
+      setMessages([]);
+      setAttachments([]);
+      setAttachmentError(null);
+      setBusy(false);
+    });
 
     if (!open || !initialSessionId) return;
     void getSession(initialSessionId)

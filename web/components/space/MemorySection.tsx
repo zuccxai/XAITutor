@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useAppShell } from "@/context/AppShellContext";
-import { apiUrl } from "@/lib/api";
+import { apiFetch, apiUrl } from "@/lib/api";
 import SpaceSectionHeader from "@/components/space/SpaceSectionHeader";
 
 const MarkdownRenderer = dynamic(
@@ -28,6 +28,12 @@ interface MemoryData {
   profile: string;
   summary_updated_at: string | null;
   profile_updated_at: string | null;
+  user?: {
+    id?: string;
+    username?: string;
+    role?: string;
+    is_admin?: boolean;
+  };
 }
 
 interface MemoryApiData extends MemoryData {
@@ -123,14 +129,18 @@ export default function MemorySection() {
   const loadMemory = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(apiUrl("/api/v1/memory"));
+      const res = await apiFetch(apiUrl("/api/v1/memory"));
       const d = await readMemoryResponse(res);
       setData(d);
       setEditors({ summary: d.summary || "", profile: d.profile || "" });
+    } catch (error) {
+      setToast(
+        error instanceof Error ? error.message : t("Memory request failed"),
+      );
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void loadMemory();
@@ -139,7 +149,7 @@ export default function MemorySection() {
   const saveMemory = useCallback(async () => {
     setSaving(true);
     try {
-      const res = await fetch(apiUrl("/api/v1/memory"), {
+      const res = await apiFetch(apiUrl("/api/v1/memory"), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ file: activeTab, content: editorValue }),
@@ -148,6 +158,10 @@ export default function MemorySection() {
       setData(d);
       setEditors((prev) => ({ ...prev, [activeTab]: d[activeTab] || "" }));
       setToast(t("{{label}} saved", { label: t(tab.label) }));
+    } catch (error) {
+      setToast(
+        error instanceof Error ? error.message : t("Memory save failed"),
+      );
     } finally {
       setSaving(false);
     }
@@ -156,7 +170,7 @@ export default function MemorySection() {
   const refreshMemory = useCallback(async () => {
     setRefreshing(true);
     try {
-      const res = await fetch(apiUrl("/api/v1/memory/refresh"), {
+      const res = await apiFetch(apiUrl("/api/v1/memory/refresh"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -185,7 +199,7 @@ export default function MemorySection() {
     if (!window.confirm(t("Clear {{label}}?", { label: t(tab.label) }))) return;
     setClearing(true);
     try {
-      const res = await fetch(apiUrl("/api/v1/memory/clear"), {
+      const res = await apiFetch(apiUrl("/api/v1/memory/clear"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ file: activeTab }),
@@ -194,6 +208,10 @@ export default function MemorySection() {
       setData(d);
       setEditors((prev) => ({ ...prev, [activeTab]: d[activeTab] || "" }));
       setToast(t("{{label}} cleared", { label: t(tab.label) }));
+    } catch (error) {
+      setToast(
+        error instanceof Error ? error.message : t("Memory clear failed"),
+      );
     } finally {
       setClearing(false);
     }

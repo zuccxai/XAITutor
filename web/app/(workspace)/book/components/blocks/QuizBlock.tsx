@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { CheckCircle2, Eye, EyeOff, XCircle } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
@@ -84,23 +84,47 @@ function QuizQuestionCard({
   const correct = String(question.correct_answer || "").trim();
   const correctChoiceKey = resolveChoiceAnswerKey(correct, options);
 
-  useEffect(() => {
-    if (revealed && selected && !reported && onAttempt) {
-      onAttempt({
-        questionId: question.question_id,
-        userAnswer: selected,
-        isCorrect: selected.toUpperCase() === correctChoiceKey,
-      });
-      setReported(true);
+  /**
+   * 上报单次选择题尝试。
+   *
+   * 输入：
+   *   answer: 用户选择的选项标识。
+   * 输出：无；通过 onAttempt 通知父级统计答题结果。
+   */
+  function reportChoiceAttempt(answer: string) {
+    if (reported || !onAttempt) return;
+    onAttempt({
+      questionId: question.question_id,
+      userAnswer: answer,
+      isCorrect: answer.toUpperCase() === correctChoiceKey,
+    });
+    setReported(true);
+  }
+
+  /**
+   * 处理选项点击。
+   *
+   * 输入：
+   *   answer: 用户点击的选项标识。
+   * 输出：无；更新选中项，若答案已展开则立即上报。
+   */
+  function handleSelect(answer: string) {
+    setSelected(answer);
+    if (revealed) reportChoiceAttempt(answer);
+  }
+
+  /**
+   * 切换答案展开状态。
+   *
+   * 输入：无。
+   * 输出：无；首次展开且已有选项时上报答题结果。
+   */
+  function handleToggleReveal() {
+    if (!revealed && selected) {
+      reportChoiceAttempt(selected);
     }
-  }, [
-    revealed,
-    selected,
-    reported,
-    onAttempt,
-    question.question_id,
-    correctChoiceKey,
-  ]);
+    setRevealed((value) => !value);
+  }
 
   return (
     <div className="rounded-xl border border-[var(--border)] bg-[var(--background)] p-3">
@@ -135,7 +159,7 @@ function QuizQuestionCard({
             return (
               <button
                 key={key}
-                onClick={() => setSelected(upperKey)}
+                onClick={() => handleSelect(upperKey)}
                 className={`flex w-full items-start gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-colors ${
                   isCorrect
                     ? "border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-100"
@@ -168,7 +192,7 @@ function QuizQuestionCard({
 
       <div className="mt-3 flex items-center justify-between gap-2">
         <button
-          onClick={() => setRevealed((v) => !v)}
+          onClick={handleToggleReveal}
           className="inline-flex items-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--card)] px-2.5 py-1 text-xs font-medium text-[var(--muted-foreground)] hover:border-[var(--primary)]/40 hover:text-[var(--primary)]"
         >
           {revealed ? (

@@ -1,8 +1,7 @@
 # ============================================
-# XAITutor Docker Compose - Upstream GHCR Image Reference
+# DeepTutor Docker Compose — Pre-built GHCR Image
 # ============================================
-# 该文件仅保留为上游官方镜像参考，不建议用于 XAITutor 生产部署。
-# 生产部署当前个性化源码时请使用 docker-compose.yml 构建 xaitutor:prod。
+# Run DeepTutor using the official pre-built image from GitHub Container Registry.
 # No local build required — the image is pulled automatically.
 #
 # Usage:
@@ -37,13 +36,14 @@
 # ============================================
 
 services:
-  xaitutor:
+  deeptutor:
     image: ghcr.io/hkuds/deeptutor:latest
-    container_name: xaitutor-upstream
+    pull_policy: always
+    container_name: deeptutor
     restart: unless-stopped
     ports:
       - "${BACKEND_PORT:-8001}:${BACKEND_PORT:-8001}"
-      - "${FRONTEND_PORT:-3783}:${FRONTEND_PORT:-3783}"
+      - "${FRONTEND_PORT:-3782}:${FRONTEND_PORT:-3782}"
 
     # Load environment variables from .env file
     env_file:
@@ -70,19 +70,20 @@ services:
       - SEARCH_BASE_URL=${SEARCH_BASE_URL:-}
       # Service Ports
       - BACKEND_PORT=${BACKEND_PORT:-8001}
-      - FRONTEND_PORT=${FRONTEND_PORT:-3783}
+      - FRONTEND_PORT=${FRONTEND_PORT:-3782}
       # API URL for remote/cloud deployment (see note above)
       # LOCAL:  leave blank
       # REMOTE: set to http://<your-server-ip>:8001 or https://your-domain.com:8001
       - NEXT_PUBLIC_API_BASE_EXTERNAL=${NEXT_PUBLIC_API_BASE_EXTERNAL:-}
       - NEXT_PUBLIC_API_BASE=${NEXT_PUBLIC_API_BASE:-}
+      - CORS_ORIGIN=${CORS_ORIGIN:-}
+      - CORS_ORIGINS=${CORS_ORIGINS:-}
 
     volumes:
-      # 持久化数据目录，首次启动时会自动创建。
+      # Persistent data (created automatically on first start)
       - ./data/user:/app/data/user
-      - ./data/knowledge_bases:/app/data/knowledge_bases
       - ./data/memory:/app/data/memory
-      - ./data/tutorbot:/app/data/tutorbot
+      - ./data/knowledge_bases:/app/data/knowledge_bases
 
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:${BACKEND_PORT:-8001}/"]
@@ -92,8 +93,8 @@ services:
       start_period: 60s
 
     networks:
-      - xaitutor-network
+      - deeptutor-network
 
 networks:
-  xaitutor-network:
+  deeptutor-network:
     driver: bridge

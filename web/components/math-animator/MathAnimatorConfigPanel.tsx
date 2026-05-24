@@ -14,14 +14,14 @@ import {
 
 interface MathAnimatorConfigPanelProps {
   value: MathAnimatorFormConfig;
-  onChange: (next: MathAnimatorFormConfig) => void;
+  onChangeAction: (next: MathAnimatorFormConfig) => void;
   collapsed: boolean;
   onToggleCollapsed: () => void;
 }
 
 export default memo(function MathAnimatorConfigPanel({
   value,
-  onChange,
+  onChangeAction,
   collapsed,
   onToggleCollapsed,
 }: MathAnimatorConfigPanelProps) {
@@ -29,7 +29,7 @@ export default memo(function MathAnimatorConfigPanel({
   const update = <K extends keyof MathAnimatorFormConfig>(
     key: K,
     val: MathAnimatorFormConfig[K],
-  ) => onChange({ ...value, [key]: val });
+  ) => onChangeAction({ ...value, [key]: val });
 
   return (
     <CollapsibleConfigSection

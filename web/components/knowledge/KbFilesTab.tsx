@@ -5,7 +5,7 @@ import {
   knowledgeBaseFilePath,
   type KnowledgeBaseFile,
 } from "@/lib/knowledge-api";
-import type { KnowledgeBase } from "@/lib/knowledge-helpers";
+import { kbResourceRef, type KnowledgeBase } from "@/lib/knowledge-helpers";
 import type { TaskState } from "@/hooks/useKnowledgeProgress";
 import type { FilePreviewSource } from "@/components/chat/preview/previewerFor";
 import { useCollapsiblePanel } from "@/hooks/useCollapsiblePanel";
@@ -28,6 +28,7 @@ export default function KbFilesTab({ kb, task }: KbFilesTabProps) {
     null,
   );
   const fileListPanel = useCollapsiblePanel("knowledge-file-list");
+  const kbRef = kbResourceRef(kb);
 
   // Bump refreshKey when the active create/upload task settles so newly
   // indexed files appear automatically.
@@ -45,16 +46,16 @@ export default function KbFilesTab({ kb, task }: KbFilesTabProps) {
     return {
       filename: selectedFile.name,
       mimeType: selectedFile.mime_type ?? undefined,
-      url: knowledgeBaseFilePath(kb.name, selectedFile.name),
+      url: knowledgeBaseFilePath(kbRef, selectedFile.name),
       size: selectedFile.size,
-      id: `${kb.name}/${selectedFile.name}`,
+      id: `${kbRef}/${selectedFile.name}`,
     };
-  }, [kb.name, selectedFile]);
+  }, [kbRef, selectedFile]);
 
   return (
     <div className="flex h-full min-h-0">
       <KbDocumentList
-        kbName={kb.name}
+        kbName={kbRef}
         refreshKey={refreshKey}
         selectedFile={selectedFile?.name ?? null}
         onSelect={setSelectedFile}

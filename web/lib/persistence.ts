@@ -228,6 +228,7 @@ export const STORAGE_KEYS = {
   QUESTION_STATE: "question_state",
   RESEARCH_STATE: "research_state",
   COWRITER_CONTENT: "cowriter_content",
+  GUIDE_SESSION: "guide_session",
 } as const;
 
 /**
