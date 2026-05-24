@@ -20,15 +20,12 @@ import {
  *
  * 输入：
  *   attachment: 当前图片附件。
- * 输出：
- *   返回可用于 Image 组件展示的地址；没有内容时返回空字符串。
+ * 输出：返回可用于 Image 组件展示的地址；没有内容时返回空字符串。
  */
 function attachmentPreviewSrc(attachment: ChatAttachment): string {
   if (attachment.previewUrl) return attachment.previewUrl;
   if (attachment.url) return attachment.url;
-  if (attachment.base64) {
-    return `data:${attachment.mime_type || "image/png"};base64,${attachment.base64}`;
-  }
+  if (attachment.base64) return `data:${attachment.mime_type || "image/png"};base64,${attachment.base64}`;
   return "";
 }
 
@@ -36,14 +33,13 @@ function attachmentPreviewSrc(attachment: ChatAttachment): string {
  * 渲染聊天输入框。
  *
  * 输入：
- *   onSend: 提交文本和图片附件时调用的发送函数。
- * 输出：
- *   返回底部输入卡片，通过 onSend 产生发送副作用。
+ *   onSendAction: 提交文本和图片附件时调用的发送函数。
+ * 输出：返回底部输入卡片，通过 onSendAction 产生发送副作用。
  */
 export function Composer({
-  onSend
+  onSendAction
 }: {
-  onSend: (content: string, attachments: ChatAttachment[]) => void;
+  onSendAction: (content: string, attachments: ChatAttachment[]) => void;
 }) {
   const [value, setValue] = useState("");
   const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
@@ -57,17 +53,13 @@ export function Composer({
    *
    * 输入：
    *   files: 文件选择器返回的图片文件列表。
-   * 输出：
-   *   无；通过 setAttachments 更新待发送图片，通过 setError 展示校验错误。
+   * 输出：无；通过 setAttachments 更新待发送图片，通过 setError 展示校验错误。
    */
   async function addImages(files: File[]) {
     if (!files.length) return;
     setError(null);
     setLoadingImages(true);
-    let runningTotal = attachments.reduce(
-      (total, item) => total + (item.size || 0),
-      0
-    );
+    let runningTotal = attachments.reduce((total, item) => total + (item.size || 0), 0);
     const accepted: File[] = [];
     let nextError: string | null = null;
 
@@ -77,15 +69,11 @@ export function Composer({
         continue;
       }
       if (file.size > MAX_IMAGE_ATTACHMENT_BYTES) {
-        nextError = `图片过大：${file.name}，单张不能超过 ${formatBytes(
-          MAX_IMAGE_ATTACHMENT_BYTES
-        )}`;
+        nextError = `图片过大：${file.name}，单张不能超过 ${formatBytes(MAX_IMAGE_ATTACHMENT_BYTES)}`;
         continue;
       }
       if (runningTotal + file.size > MAX_IMAGE_ATTACHMENT_TOTAL_BYTES) {
-        nextError = `图片总大小不能超过 ${formatBytes(
-          MAX_IMAGE_ATTACHMENT_TOTAL_BYTES
-        )}`;
+        nextError = `图片总大小不能超过 ${formatBytes(MAX_IMAGE_ATTACHMENT_TOTAL_BYTES)}`;
         break;
       }
       runningTotal += file.size;
@@ -93,12 +81,8 @@ export function Composer({
     }
 
     try {
-      const nextAttachments = await Promise.all(
-        accepted.map(imageFileToAttachment)
-      );
-      if (nextAttachments.length) {
-        setAttachments((current) => [...current, ...nextAttachments]);
-      }
+      const nextAttachments = await Promise.all(accepted.map(imageFileToAttachment));
+      if (nextAttachments.length) setAttachments((current) => [...current, ...nextAttachments]);
     } catch {
       nextError = "图片读取失败，请重新选择。";
     } finally {
@@ -112,8 +96,7 @@ export function Composer({
    *
    * 输入：
    *   event: input[type=file] 的 change 事件。
-   * 输出：
-   *   无；读取图片后清空 input，保证同一文件可重复选择。
+   * 输出：无；读取图片后清空 input，保证同一文件可重复选择。
    */
   async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     await addImages(Array.from(event.target.files || []));
@@ -125,8 +108,7 @@ export function Composer({
    *
    * 输入：
    *   event: 文本框 paste 事件。
-   * 输出：
-   *   无；当剪贴板包含图片时追加到待发送附件。
+   * 输出：无；当剪贴板包含图片时追加到待发送附件。
    */
   async function handlePaste(event: ClipboardEvent<HTMLTextAreaElement>) {
     const files = Array.from(event.clipboardData.files || []);
@@ -140,13 +122,10 @@ export function Composer({
    *
    * 输入：
    *   index: 要移除的附件下标。
-   * 输出：
-   *   无；更新本地待发送附件列表。
+   * 输出：无；更新本地待发送附件列表。
    */
   function removeAttachment(index: number) {
-    setAttachments((current) =>
-      current.filter((_, itemIndex) => itemIndex !== index)
-    );
+    setAttachments((current) => current.filter((_, itemIndex) => itemIndex !== index));
   }
 
   /**
@@ -154,13 +133,12 @@ export function Composer({
    *
    * 输入：
    *   event: 表单提交事件。
-   * 输出：
-   *   无；通过 onSend 发送文本和图片，并清空输入状态。
+   * 输出：无；通过 onSendAction 发送文本和图片，并清空输入状态。
    */
   function submit(event: FormEvent) {
     event.preventDefault();
     if (!canSend || loadingImages) return;
-    onSend(value.trim(), attachments);
+    onSendAction(value.trim(), attachments);
     setValue("");
     setAttachments([]);
     setError(null);
@@ -210,9 +188,7 @@ export function Composer({
           className="min-h-24 w-full resize-none rounded-xl border-0 bg-transparent px-2 py-1 text-sm leading-6 outline-none placeholder:text-muted"
           placeholder="输入学习问题、题目或研究任务..."
         />
-        {error ? (
-          <div className="mt-2 px-2 text-xs text-danger">{error}</div>
-        ) : null}
+        {error ? <div className="mt-2 px-2 text-xs text-danger">{error}</div> : null}
         <div className="mt-2 flex items-center justify-between gap-2">
           <input
             ref={fileInputRef}

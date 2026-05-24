@@ -17,6 +17,7 @@ data/user/
         ├── chat/
         ├── deep_solve/
         ├── photo_solve/
+        ├── deep_guided/
         ├── deep_question/
         ├── deep_research/
         ├── math_animator/
@@ -59,7 +60,12 @@ WorkspaceFeature = Literal[
 
 
 class PathService:
-    """Singleton runtime path manager rooted at ``data/user``."""
+    """Runtime path manager rooted at a workspace root.
+
+    The default root is the historical ``data/`` directory.  The optional
+    multi-user layer instantiates this class with ``multi-user/<uid>/`` so the
+    public API can stay the same while disk writes become scoped per user.
+    """
 
     _instance: "PathService | None" = None
 
@@ -75,19 +81,11 @@ class PathService:
     }
     _PRIVATE_SUFFIXES = {".json", ".sqlite", ".db", ".md", ".yaml", ".yml", ".py", ".log"}
 
-    def __new__(cls) -> "PathService":
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-            cls._instance._initialized = False
-        return cls._instance
-
-    def __init__(self):
-        if self._initialized:
-            return
-
+    def __init__(self, workspace_root: Path | None = None):
         self._project_root = Path(__file__).resolve().parent.parent.parent
-        self._user_data_dir = (self._project_root / "data" / "user").resolve()
-        self._initialized = True
+        self._uses_default_workspace_root = workspace_root is None
+        self._workspace_root = (workspace_root or self._project_root / "data").resolve()
+        self._user_data_dir = (self._workspace_root / "user").resolve()
 
     @classmethod
     def get_instance(cls) -> "PathService":
@@ -107,8 +105,17 @@ class PathService:
     def user_data_dir(self) -> Path:
         return self._user_data_dir
 
+    @property
+    def workspace_root(self) -> Path:
+        if self._uses_default_workspace_root:
+            return (self._project_root / "data").resolve()
+        return self._workspace_root
+
     def get_user_root(self) -> Path:
         return self._user_data_dir
+
+    def get_knowledge_bases_root(self) -> Path:
+        return self._workspace_root / "knowledge_bases"
 
     def get_chat_history_db(self) -> Path:
         return self._user_data_dir / "chat_history.db"
@@ -242,9 +249,9 @@ class PathService:
         return self.get_notebook_dir() / "notebooks_index.json"
 
     def get_memory_dir(self) -> Path:
-        new_dir = self.project_root / "data" / "memory"
+        new_dir = self.workspace_root / "memory"
         old_dir = self.get_workspace_feature_dir("memory")
-        if old_dir.exists():
+        if self.workspace_root == (self.project_root / "data").resolve() and old_dir.exists():
             new_dir.mkdir(parents=True, exist_ok=True)
             for f in old_dir.iterdir():
                 if f.is_file() and f.suffix == ".md":
@@ -270,7 +277,7 @@ class PathService:
         输入：
             无。
         输出：
-            返回 data/user/workspace/chat/photo_solve 路径。
+            返回当前 workspace 下的 chat/photo_solve 路径。
         """
         return self.get_chat_feature_dir("photo_solve")
 
@@ -430,7 +437,12 @@ class PathService:
 
 
 def get_path_service() -> PathService:
-    return PathService.get_instance()
+    try:
+        from deeptutor.multi_user.paths import get_current_path_service
+
+        return get_current_path_service()
+    except Exception:
+        return PathService.get_instance()
 
 
 __all__ = [

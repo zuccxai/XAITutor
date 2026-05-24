@@ -1,7 +1,6 @@
 "use client";
 
-import { Sidebar } from "@/components/layout/Sidebar";
-import type { SidebarHistoryProps } from "@/components/layout/Sidebar";
+import { Sidebar, type SidebarHistoryProps } from "@/components/layout/Sidebar";
 import { TopBar } from "@/components/layout/TopBar";
 
 /**
@@ -12,10 +11,9 @@ import { TopBar } from "@/components/layout/TopBar";
  *   subtitle: 顶栏副标题。
  *   status: 连接状态。
  *   children: 中间主内容。
- *   inspector: 右侧面板。
+ *   inspector: 右侧信息面板。
  *   history: 左侧学习记录控制参数。
- * 输出：
- *   返回包含侧栏、顶栏、主内容和右侧面板的页面框架。
+ * 输出：返回包含侧栏、顶栏、主内容和右侧面板的页面框架。
  */
 export function AppShell({
   title,

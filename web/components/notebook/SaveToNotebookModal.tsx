@@ -23,7 +23,8 @@ type RecordType =
   | "research"
   | "chat"
   | "co_writer"
-  | "tutorbot";
+  | "tutorbot"
+  | "guided_learning";
 
 export interface NotebookSavePayload {
   recordType: RecordType;

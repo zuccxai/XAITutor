@@ -95,7 +95,14 @@ export default function KnowledgePage() {
 
   const handleDelete = useCallback(
     async (name: string) => {
-      if (!window.confirm(t('Delete knowledge base "{{name}}"?', { name }))) {
+      const displayName = name.includes(":kb:")
+        ? name.split(":kb:").pop() || name
+        : name;
+      if (
+        !window.confirm(
+          t('Delete knowledge base "{{name}}"?', { name: displayName }),
+        )
+      ) {
         return;
       }
       try {

@@ -16,7 +16,7 @@ import {
 
 interface QuizConfigPanelProps {
   value: DeepQuestionFormConfig;
-  onChange: (next: DeepQuestionFormConfig) => void;
+  onChangeAction: (next: DeepQuestionFormConfig) => void;
   uploadedPdf: File | null;
   onUploadPdf: (file: File | null) => void;
   collapsed: boolean;
@@ -25,7 +25,7 @@ interface QuizConfigPanelProps {
 
 export default memo(function QuizConfigPanel({
   value,
-  onChange,
+  onChangeAction,
   uploadedPdf,
   onUploadPdf,
   collapsed,
@@ -38,7 +38,7 @@ export default memo(function QuizConfigPanel({
   const update = <K extends keyof DeepQuestionFormConfig>(
     key: K,
     val: DeepQuestionFormConfig[K],
-  ) => onChange({ ...value, [key]: val });
+  ) => onChangeAction({ ...value, [key]: val });
 
   const setMode = (m: DeepQuestionMode) => update("mode", m);
 

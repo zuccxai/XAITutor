@@ -31,6 +31,14 @@ class ChatRequestConfig(BaseModel):
 
 
 class CompetitionConsultingRequestConfig(BaseModel):
+    """备赛助手请求配置。
+
+    输入：
+        无公开可配置字段。
+    输出：
+        返回经过 Pydantic 校验的配置对象。
+    """
+
     model_config = ConfigDict(extra="forbid")
 
 
@@ -63,9 +71,17 @@ class PhotoSolveRequestConfig(BaseModel):
 
 
 class DeepGuidedRequestConfig(BaseModel):
+    """深度引导请求配置。
+
+    输入：
+        hint_level: 可选提示层级；为空时由 agent 根据上下文判断。
+        reveal_answer: 是否直接揭示答案。
+    输出：
+        返回经过 Pydantic 校验的配置对象。
+    """
+
     model_config = ConfigDict(extra="forbid")
-    # Legacy optional control. The guided agent now infers the appropriate
-    # amount of scaffolding from the conversation when this is omitted.
+
     hint_level: int | None = Field(default=None, ge=1, le=4)
     reveal_answer: bool = False
 
@@ -124,6 +140,13 @@ def validate_chat_request_config(raw_config: dict[str, Any] | None) -> ChatReque
 def validate_competition_consulting_request_config(
     raw_config: dict[str, Any] | None,
 ) -> CompetitionConsultingRequestConfig:
+    """校验备赛助手请求配置。
+
+    输入：
+        raw_config: WebSocket、CLI 或 API 传入的原始 config。
+    输出：
+        返回 CompetitionConsultingRequestConfig；字段非法时抛出 ValueError。
+    """
     return _validate_model(
         CompetitionConsultingRequestConfig,
         raw_config,
@@ -153,6 +176,13 @@ def validate_photo_solve_request_config(
 def validate_deep_guided_request_config(
     raw_config: dict[str, Any] | None,
 ) -> DeepGuidedRequestConfig:
+    """校验深度引导请求配置。
+
+    输入：
+        raw_config: WebSocket、CLI 或 API 传入的原始 config。
+    输出：
+        返回 DeepGuidedRequestConfig；字段非法时抛出 ValueError。
+    """
     return _validate_model(DeepGuidedRequestConfig, raw_config, label="deep guided")
 
 

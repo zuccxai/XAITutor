@@ -37,6 +37,7 @@ class PromptManager:
         "chat",
         "guided",
         "photo_solve",
+        "competition_consulting",
     ]
 
     # Modules that are not under deeptutor/agents/ directory

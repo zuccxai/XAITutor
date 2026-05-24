@@ -79,8 +79,7 @@ export const VISIBLE_CAPABILITY_CONFIGS: CapabilityConfig[] = CAPABILITY_CONFIGS
  *
  * 输入：
  *   capability: 后端会话或消息中保存的 capability。
- * 输出：
- *   返回 web_new 使用的能力标识；空值和 chat 都映射为聊天。
+ * 输出：返回 web_new 使用的能力标识；空值和 chat 都映射为聊天。
  */
 export function fromBackendCapability(capability: string | null | undefined): CapabilityName {
   if (!capability || capability === "chat") return "chat";
@@ -93,8 +92,7 @@ export function fromBackendCapability(capability: string | null | undefined): Ca
  *
  * 输入：
  *   capability: web_new 内部使用的能力标识。
- * 输出：
- *   返回能力配置；未知能力回退到聊天配置。
+ * 输出：返回能力配置；未知能力回退到聊天配置。
  */
 export function getCapabilityConfig(capability: CapabilityName): CapabilityConfig {
   return CAPABILITY_CONFIGS.find((item) => item.id === capability) ?? CAPABILITY_CONFIGS[0];
@@ -105,8 +103,7 @@ export function getCapabilityConfig(capability: CapabilityName): CapabilityConfi
  *
  * 输入：
  *   capability: web_new 内部使用的能力标识。
- * 输出：
- *   返回后端 capability；聊天能力返回 null，与 web_v1 保持一致。
+ * 输出：返回后端 capability；聊天能力返回 null。
  */
 export function toBackendCapability(capability: CapabilityName): BackendCapabilityName {
   return getCapabilityConfig(capability).backendCapability;
@@ -117,8 +114,7 @@ export function toBackendCapability(capability: CapabilityName): BackendCapabili
  *
  * 输入：
  *   capability: web_new 内部使用的能力标识。
- * 输出：
- *   返回该能力默认启用的工具名称数组。
+ * 输出：返回该能力默认启用的工具名称数组。
  */
 export function defaultToolsForCapability(capability: CapabilityName): ToolName[] {
   return [...getCapabilityConfig(capability).defaultTools];
@@ -129,8 +125,7 @@ export function defaultToolsForCapability(capability: CapabilityName): ToolName[
  *
  * 输入：
  *   capability: web_new 内部使用的能力标识。
- * 输出：
- *   返回该能力允许展示和切换的工具名称数组。
+ * 输出：返回该能力允许展示和切换的工具名称数组。
  */
 export function allowedToolsForCapability(capability: CapabilityName): ToolName[] {
   return [...getCapabilityConfig(capability).allowedTools];

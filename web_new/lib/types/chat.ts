@@ -36,12 +36,32 @@ export interface ChatMessage {
   attachments?: ChatAttachment[];
 }
 
+export interface LLMSelection {
+  profile_id: string;
+  model_id: string;
+}
+
+export interface RequestSnapshot {
+  capability?: string | null;
+  tools?: string[];
+  knowledge_bases?: string[];
+  llm_selection?: LLMSelection | null;
+  memory_references?: string[];
+  skills?: string[];
+  attachments?: ChatAttachment[];
+  language?: string;
+  config?: Record<string, unknown>;
+}
+
 export interface StartTurnPayload {
   type: "start_turn";
   content: string;
   capability?: CapabilityName | string | null;
   tools?: string[];
   knowledge_bases?: string[];
+  llm_selection?: LLMSelection | null;
+  memory_references?: string[];
+  skills?: string[];
   attachments?: ChatAttachment[];
   session_id?: string | null;
   language?: string;

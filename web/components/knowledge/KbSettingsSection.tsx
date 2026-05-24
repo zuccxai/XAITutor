@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Star, Trash2 } from "lucide-react";
 import {
   formatKnowledgeTimestamp,
+  kbIsReadOnly,
   type KnowledgeBase,
 } from "@/lib/knowledge-helpers";
 
@@ -28,6 +29,8 @@ export default function KbSettingsSection({
     : t("Default embedding");
   const created = formatKnowledgeTimestamp(meta.created_at);
   const updated = formatKnowledgeTimestamp(meta.last_updated);
+  const lastIndexed = formatKnowledgeTimestamp(meta.last_indexed_at);
+  const readOnly = kbIsReadOnly(kb);
 
   return (
     <div className="space-y-6">
@@ -46,6 +49,7 @@ export default function KbSettingsSection({
           <Field label={t("Embedding")}>{embeddingLabel}</Field>
           <Field label={t("Created")}>{created || "—"}</Field>
           <Field label={t("Updated")}>{updated || "—"}</Field>
+          <Field label={t("Last indexed")}>{lastIndexed || "—"}</Field>
           {kb.path && (
             <Field label={t("On-disk path")} className="sm:col-span-2">
               <span className="font-mono text-[10.5px] text-[var(--muted-foreground)]">
@@ -74,7 +78,11 @@ export default function KbSettingsSection({
           <button
             type="button"
             onClick={() => void onSetDefault()}
-            className="inline-flex items-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--background)] px-2.5 py-1 text-[12px] font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--muted)]"
+            disabled={readOnly}
+            title={
+              readOnly ? t("Assigned knowledge bases are read-only") : undefined
+            }
+            className="inline-flex items-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--background)] px-2.5 py-1 text-[12px] font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--muted)] disabled:cursor-not-allowed disabled:opacity-40"
           >
             <Star className="h-3 w-3" />
             {t("Set as default")}
@@ -96,7 +104,11 @@ export default function KbSettingsSection({
         <button
           type="button"
           onClick={() => void onDelete()}
-          className="inline-flex items-center gap-1.5 rounded-md border border-red-300 bg-red-50 px-2.5 py-1 text-[12px] font-medium text-red-700 transition-colors hover:bg-red-100 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300 dark:hover:bg-red-950/50"
+          disabled={readOnly}
+          title={
+            readOnly ? t("Assigned knowledge bases are read-only") : undefined
+          }
+          className="inline-flex items-center gap-1.5 rounded-md border border-red-300 bg-red-50 px-2.5 py-1 text-[12px] font-medium text-red-700 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300 dark:hover:bg-red-950/50"
         >
           <Trash2 className="h-3 w-3" />
           {t("Delete knowledge base")}

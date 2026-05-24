@@ -7,8 +7,7 @@ import type { SessionDetail, SessionSummary } from "@/lib/types/session";
  * 输入：
  *   limit: 返回数量上限。
  *   offset: 分页偏移。
- * 输出：
- *   返回后端保存的学习记录摘要列表。
+ * 输出：返回后端保存的学习记录摘要列表。
  */
 export async function listSessions(limit = 80, offset = 0): Promise<SessionSummary[]> {
   const data = await requestJson<{ sessions?: SessionSummary[] }>(
@@ -22,8 +21,7 @@ export async function listSessions(limit = 80, offset = 0): Promise<SessionSumma
  *
  * 输入：
  *   sessionId: 后端会话标识。
- * 输出：
- *   返回会话详情与消息列表。
+ * 输出：返回会话详情与消息列表。
  */
 export async function getSession(sessionId: string): Promise<SessionDetail> {
   return requestJson<SessionDetail>(`/api/v1/sessions/${encodeURIComponent(sessionId)}`);
@@ -35,13 +33,9 @@ export async function getSession(sessionId: string): Promise<SessionDetail> {
  * 输入：
  *   sessionId: 后端会话标识。
  *   title: 新会话标题。
- * 输出：
- *   返回更新后的会话摘要。
+ * 输出：返回更新后的会话摘要。
  */
-export async function renameSession(
-  sessionId: string,
-  title: string
-): Promise<SessionSummary> {
+export async function renameSession(sessionId: string, title: string): Promise<SessionSummary> {
   const data = await requestJson<{ session?: SessionSummary }>(
     `/api/v1/sessions/${encodeURIComponent(sessionId)}`,
     {
@@ -58,8 +52,7 @@ export async function renameSession(
  *
  * 输入：
  *   sessionId: 后端会话标识。
- * 输出：
- *   无；后端删除会话及其消息。
+ * 输出：无；后端删除会话及其消息。
  */
 export async function deleteSession(sessionId: string): Promise<void> {
   await requestJson<{ deleted?: boolean; session_id?: string }>(

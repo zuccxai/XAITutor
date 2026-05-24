@@ -68,8 +68,11 @@ export default function BookReferencePicker({
   useEffect(() => {
     if (!open) return;
     let mounted = true;
-    setSelected(initialReferences);
-    setLoadingBooks(true);
+    queueMicrotask(() => {
+      if (!mounted) return;
+      setSelected(initialReferences);
+      setLoadingBooks(true);
+    });
     void bookApi
       .list()
       .then((data) => {
@@ -91,7 +94,9 @@ export default function BookReferencePicker({
   useEffect(() => {
     if (!open || !activeBookId || details[activeBookId]) return;
     let mounted = true;
-    setLoadingDetail(true);
+    queueMicrotask(() => {
+      if (mounted) setLoadingDetail(true);
+    });
     void bookApi
       .get(activeBookId)
       .then((detail) => {

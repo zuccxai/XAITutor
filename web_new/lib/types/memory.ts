@@ -5,6 +5,12 @@ export interface MemoryData {
   profile: string;
   summary_updated_at: string | null;
   profile_updated_at: string | null;
+  user?: {
+    id?: string;
+    username?: string;
+    role?: string;
+    is_admin?: boolean;
+  };
 }
 
 export interface MemoryApiData extends MemoryData {

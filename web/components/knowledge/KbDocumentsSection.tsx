@@ -7,6 +7,7 @@ import { Loader2, Upload } from "lucide-react";
 import type { KnowledgeUploadPolicy } from "@/lib/knowledge-api";
 import {
   kbIsUploadable,
+  kbIsReadOnly,
   kbNeedsReindex,
   resolveKbStatus,
   resolveProgressPercent,
@@ -50,10 +51,13 @@ export default function KbDocumentsSection({
   const [submitting, setSubmitting] = useState(false);
 
   const uploadable = kbIsUploadable(kb);
+  const readOnly = kbIsReadOnly(kb);
   const needsReindex = kbNeedsReindex(kb);
   const status = resolveKbStatus(kb);
 
-  const blockedReason = !uploadable
+  const blockedReason = readOnly
+    ? t("Assigned knowledge bases are read-only")
+    : !uploadable
     ? needsReindex
       ? t(
           "This knowledge base is in legacy index format and needs reindex before upload.",
@@ -109,7 +113,7 @@ export default function KbDocumentsSection({
 
       <FileDropZone
         files={files}
-        onChange={setFiles}
+        onChangeAction={setFiles}
         uploadPolicy={uploadPolicy}
         disabled={!uploadable || isUploadingHere}
       />

@@ -26,7 +26,7 @@ const EMPTY_DROP_STATE: DropState = {
 
 interface FileDropZoneProps {
   files: File[];
-  onChange: (files: File[]) => void;
+  onChangeAction: (files: File[]) => void;
   uploadPolicy: KnowledgeUploadPolicy;
   disabled?: boolean;
   compact?: boolean;
@@ -35,7 +35,7 @@ interface FileDropZoneProps {
 
 export default function FileDropZone({
   files,
-  onChange,
+  onChangeAction,
   uploadPolicy,
   disabled = false,
   compact = false,
@@ -130,22 +130,22 @@ export default function FileDropZone({
       const dropped = Array.from(event.dataTransfer.files || []);
       reset();
       if (!dropped.length) return;
-      onChange(mergeSelectedFiles(files, dropped));
+      onChangeAction(mergeSelectedFiles(files, dropped));
     },
-    [disabled, files, onChange, reset],
+    [disabled, files, onChangeAction, reset],
   );
 
   const removeFile = useCallback(
     (id: string) => {
-      onChange(files.filter((file) => selectionFileId(file) !== id));
+      onChangeAction(files.filter((file) => selectionFileId(file) !== id));
     },
-    [files, onChange],
+    [files, onChangeAction],
   );
 
   const clearAll = useCallback(() => {
-    onChange([]);
+    onChangeAction([]);
     if (inputRef.current) inputRef.current.value = "";
-  }, [onChange]);
+  }, [onChangeAction]);
 
   const padding = compact ? "px-4 py-5" : "px-5 py-7";
 
@@ -220,7 +220,7 @@ export default function FileDropZone({
         onChange={(event) => {
           const picked = Array.from(event.target.files || []);
           event.target.value = "";
-          onChange(mergeSelectedFiles(files, picked));
+          onChangeAction(mergeSelectedFiles(files, picked));
         }}
       />
 

@@ -140,6 +140,29 @@ class RebuildBookRequest(BaseModel):
 # ─────────────────────────────────────────────────────────────────────────────
 
 
+def _authorized_knowledge_bases(raw_items: list[str]) -> list[str]:
+    """校验并归一化图书生成请求中的知识库引用。
+
+    输入：
+        raw_items: 前端传入的知识库名称或带作用域的资源 ID。
+    输出：
+        返回当前用户有权读取的知识库资源 ID 列表。
+    """
+    from deeptutor.multi_user.knowledge_access import resolve_kb
+
+    authorized: list[str] = []
+    for raw in raw_items or []:
+        if not isinstance(raw, str):
+            continue
+        ref = raw.strip()
+        if not ref:
+            continue
+        resource = resolve_kb(ref, require_write=False)
+        if resource.id not in authorized:
+            authorized.append(resource.id)
+    return authorized
+
+
 @router.get("/health")
 async def health_check() -> dict[str, str]:
     return {"status": "healthy", "service": "book"}
@@ -201,13 +224,14 @@ async def create_book(req: CreateBookRequest) -> dict[str, Any]:
     if not req.user_intent.strip():
         raise HTTPException(status_code=400, detail="user_intent is required")
     engine = get_book_engine()
+    knowledge_bases = _authorized_knowledge_bases(req.knowledge_bases)
     try:
         book, proposal = await engine.create_book(
             user_intent=req.user_intent,
             chat_session_id=req.chat_session_id,
             chat_selections=req.chat_selections,
             notebook_refs=req.notebook_refs,
-            knowledge_bases=req.knowledge_bases,
+            knowledge_bases=knowledge_bases,
             question_categories=req.question_categories,
             question_entries=req.question_entries,
             language=req.language,
@@ -547,12 +571,13 @@ async def book_websocket(ws: WebSocket) -> None:
 
             try:
                 if msg_type == "create":
+                    knowledge_bases = _authorized_knowledge_bases(data.get("knowledge_bases") or [])
                     book, proposal = await engine.create_book(
                         user_intent=str(data.get("user_intent") or ""),
                         chat_session_id=str(data.get("chat_session_id") or ""),
                         chat_selections=data.get("chat_selections") or [],
                         notebook_refs=data.get("notebook_refs") or [],
-                        knowledge_bases=data.get("knowledge_bases") or [],
+                        knowledge_bases=knowledge_bases,
                         question_categories=[
                             int(c) for c in (data.get("question_categories") or [])
                         ],

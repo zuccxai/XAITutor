@@ -9,7 +9,8 @@ import logging
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field, field_validator
 
-from deeptutor.services.session import get_sqlite_session_store
+from deeptutor.multi_user.context import get_current_user
+from deeptutor.services.session import get_session_store, get_sqlite_session_store
 
 logger = logging.getLogger(__name__)
 
@@ -69,23 +70,47 @@ async def list_sessions(
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
 ):
-    store = get_sqlite_session_store()
+    """列出当前登录用户的会话历史。
+
+    输入：
+        limit: 返回数量上限。
+        offset: 分页偏移量。
+    输出：
+        返回当前用户作用域下的会话摘要列表和当前用户信息。
+    """
+    store = get_session_store()
     sessions = await store.list_sessions(limit=limit, offset=offset)
-    return {"sessions": sessions}
+    return {"sessions": sessions, "user": get_current_user().public_dict()}
 
 
 @router.get("/{session_id}")
 async def get_session(session_id: str):
-    store = get_sqlite_session_store()
+    """读取当前登录用户的单个会话历史。
+
+    输入：
+        session_id: 会话标识。
+    输出：
+        返回当前用户作用域下的会话详情和消息列表。
+    """
+    store = get_session_store()
     session = await store.get_session_with_messages(session_id)
     if session is None:
         raise HTTPException(status_code=404, detail="Session not found")
+    session["user"] = get_current_user().public_dict()
     return session
 
 
 @router.patch("/{session_id}")
 async def rename_session(session_id: str, payload: SessionRenameRequest):
-    store = get_sqlite_session_store()
+    """重命名当前登录用户的会话历史。
+
+    输入：
+        session_id: 会话标识。
+        payload: 新标题。
+    输出：
+        返回更新后的当前用户会话摘要。
+    """
+    store = get_session_store()
     updated = await store.update_session_title(session_id, payload.title)
     if not updated:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -95,7 +120,14 @@ async def rename_session(session_id: str, payload: SessionRenameRequest):
 
 @router.delete("/{session_id}")
 async def delete_session(session_id: str):
-    store = get_sqlite_session_store()
+    """删除当前登录用户的会话历史。
+
+    输入：
+        session_id: 会话标识。
+    输出：
+        返回删除结果；会话不存在或不属于当前用户时返回 404。
+    """
+    store = get_session_store()
     deleted = await store.delete_session(session_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Session not found")

@@ -6,10 +6,12 @@ import { RightInspector } from "@/components/layout/RightInspector";
 import { CapabilitySelector } from "@/components/chat/CapabilitySelector";
 import { MessageList } from "@/components/chat/MessageList";
 import { Composer } from "@/components/chat/Composer";
+import { ModelSelector } from "@/components/chat/ModelSelector";
 import { useUnifiedChat } from "@/hooks/useUnifiedChat";
 import { useKnowledgeBases } from "@/hooks/useKnowledgeBases";
 import { cn } from "@/lib/cn";
 import type { CapabilityName } from "@/lib/types/chat";
+import type { KnowledgeBaseSummary } from "@/lib/types/knowledge";
 
 const workspaceTitles: Record<CapabilityName, string> = {
   chat: "学习",
@@ -25,13 +27,15 @@ const workspaceTitles: Record<CapabilityName, string> = {
  *
  * 输入：
  *   items: 后端返回的知识库列表。
- * 输出：
- *   返回默认知识库名称；没有默认项时返回第一个知识库；没有知识库时返回空字符串。
+ * 输出：返回默认知识库名称；没有默认项时返回第一个知识库，没有知识库时返回空字符串。
  */
-function defaultKnowledgeBaseName(
-  items: { name: string; is_default?: boolean }[]
-): string {
-  return items.find((item) => item.is_default)?.name || items[0]?.name || "";
+function knowledgeBaseRef(kb: KnowledgeBaseSummary): string {
+  return kb.id || kb.resource_id || kb.name;
+}
+
+function defaultKnowledgeBaseName(items: KnowledgeBaseSummary[]): string {
+  const preferred = items.find((item) => item.is_default) || items[0];
+  return preferred ? knowledgeBaseRef(preferred) : "";
 }
 
 /**
@@ -40,22 +44,14 @@ function defaultKnowledgeBaseName(
  * 输入：
  *   capability: 当前正在使用的能力。
  *   shellTitle: 页面级标题；日常练习会传入该值。
- * 输出：
- *   返回展示在顶部标题下方的简短功能说明。
+ * 输出：返回展示在顶部标题下方的简短功能说明。
  */
-function workspaceSubtitle(
-  capability: CapabilityName,
-  shellTitle?: string
-): string {
+function workspaceSubtitle(capability: CapabilityName, shellTitle?: string): string {
   if (shellTitle === "日常练习") {
     return "围绕题目讲解和思路引导，支持知识库辅助学习。";
   }
-  if (capability === "deep_guided") {
-    return "通过追问和提示引导你逐步理解问题。";
-  }
-  if (capability === "deep_solve") {
-    return "结合知识库和推理能力拆解题目。";
-  }
+  if (capability === "deep_guided") return "通过追问和提示引导你逐步理解问题。";
+  if (capability === "deep_solve") return "结合知识库和推理能力拆解题目。";
   if (capability === "photo_solve") {
     return "上传题目图片，优先匹配知识库原题，未命中时进入深度解题。";
   }
@@ -66,12 +62,13 @@ function workspaceSubtitle(
 }
 
 /**
- * 渲染新版演示聊天工作区。
+ * 渲染新版学习聊天工作区。
  *
  * 输入：
  *   initialCapability: 页面入口指定的默认能力。
- * 输出：
- *   返回带有居中对话区、知识库选择和知识库来源面板的工作区。
+ *   shellTitle: 可选页面标题。
+ *   showCapabilitySelector: 是否展示能力切换控件。
+ * 输出：返回带模型选择、知识库选择、对话区和运行面板的工作区。
  */
 export function ChatWorkspace({
   initialCapability = "chat",
@@ -88,6 +85,9 @@ export function ChatWorkspace({
   const workspaceTitle = workspaceTitles[chat.capability];
   const ragEnabled = chat.tools.includes("rag");
   const selectedKnowledgeBase = chat.knowledgeBases[0] || "";
+  const selectedKnowledgeBaseLabel =
+    knowledge.items.find((kb) => knowledgeBaseRef(kb) === selectedKnowledgeBase)?.name ||
+    selectedKnowledgeBase;
   const setKnowledgeBases = chat.setKnowledgeBases;
 
   useEffect(() => {
@@ -99,20 +99,14 @@ export function ChatWorkspace({
     const defaultName = defaultKnowledgeBaseName(knowledge.items);
     if (defaultName) setKnowledgeBases([defaultName]);
     setKnowledgeInitialized(true);
-  }, [
-    knowledge.items,
-    knowledgeInitialized,
-    selectedKnowledgeBase,
-    setKnowledgeBases
-  ]);
+  }, [knowledge.items, knowledgeInitialized, selectedKnowledgeBase, setKnowledgeBases]);
 
   /**
    * 手动选择当前会话使用的知识库。
    *
    * 输入：
    *   value: select 当前选中的知识库名称；空字符串表示无知识库。
-   * 输出：
-   *   无；更新聊天状态中的知识库选择。
+   * 输出：无；更新聊天状态中的知识库选择。
    */
   function handleKnowledgeBaseChange(value: string) {
     setKnowledgeBases(value ? [value] : []);
@@ -127,7 +121,7 @@ export function ChatWorkspace({
         <RightInspector
           events={chat.events}
           ragEnabled={ragEnabled}
-          knowledgeBases={selectedKnowledgeBase ? [selectedKnowledgeBase] : []}
+          knowledgeBases={selectedKnowledgeBaseLabel ? [selectedKnowledgeBaseLabel] : []}
           waiting={chat.waitingForAssistant}
         />
       }
@@ -143,23 +137,18 @@ export function ChatWorkspace({
         <div className="flex min-h-0 w-full flex-1 flex-col px-6">
           <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 py-4">
             <div className="min-w-0">
-              <div className="text-[15px] font-semibold text-ink">
-                {shellTitle || workspaceTitle}
-              </div>
+              <div className="text-[15px] font-semibold text-ink">{shellTitle || workspaceTitle}</div>
               <div className="mt-1 truncate text-xs text-muted">
                 {shellTitle ? `${workspaceTitle} · ` : ""}
-                知识库：
-                {ragEnabled ? selectedKnowledgeBase || "无知识库" : "RAG 未启用"}
+                知识库：{ragEnabled ? selectedKnowledgeBaseLabel || "无知识库" : "RAG 未启用"}
               </div>
             </div>
             {showCapabilitySelector ? (
-              <CapabilitySelector
-                value={chat.capability}
-                onChange={chat.setCapability}
-              />
+              <CapabilitySelector value={chat.capability} onChangeAction={chat.setCapability} />
             ) : null}
           </div>
           <div className="flex shrink-0 flex-wrap items-center justify-end gap-3 pb-3">
+            <ModelSelector value={chat.llmSelection} onChangeAction={chat.setLlmSelection} />
             <label className="flex items-center gap-2 text-xs text-muted">
               <span>知识库</span>
               <select
@@ -176,28 +165,21 @@ export function ChatWorkspace({
               >
                 <option value="">{ragEnabled ? "无知识库" : "RAG 未启用"}</option>
                 {knowledge.items.map((kb) => (
-                  <option key={kb.name} value={kb.name}>
+                  <option key={knowledgeBaseRef(kb)} value={knowledgeBaseRef(kb)}>
                     {kb.name}
                     {kb.is_default ? "（默认）" : ""}
+                    {kb.assigned || kb.source === "admin" ? "（授权）" : ""}
                   </option>
                 ))}
               </select>
             </label>
           </div>
           <div className="min-h-0 flex-1 overflow-auto scrollbar-thin">
-            <MessageList
-              messages={chat.messages}
-              waiting={chat.waitingForAssistant}
-              events={chat.events}
-            />
+            <MessageList messages={chat.messages} waiting={chat.waitingForAssistant} events={chat.events} />
           </div>
           <Composer
-            onSend={(content, attachments) =>
-              chat.send(
-                content,
-                selectedKnowledgeBase ? [selectedKnowledgeBase] : [],
-                attachments
-              )
+            onSendAction={(content, attachments) =>
+              chat.send(content, selectedKnowledgeBase ? [selectedKnowledgeBase] : [], attachments)
             }
           />
         </div>

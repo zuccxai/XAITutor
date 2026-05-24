@@ -21,7 +21,14 @@ import {
 import { useRouter } from "next/navigation";
 import { useTranslation } from "react-i18next";
 import dynamic from "next/dynamic";
-import { apiUrl } from "@/lib/api";
+import { apiFetch, apiUrl } from "@/lib/api";
+import ModelSelector from "@/components/chat/home/ModelSelector";
+import {
+  listLLMOptions,
+  sameLLMSelection,
+  type LLMOption,
+} from "@/lib/llm-options";
+import type { LLMSelection } from "@/lib/unified-ws";
 
 const MarkdownRenderer = dynamic(
   () => import("@/components/common/MarkdownRenderer"),
@@ -45,6 +52,7 @@ interface BotInfo {
    */
   channels: string[];
   model: string | null;
+  llm_selection?: LLMSelection | null;
   running: boolean;
   started_at: string | null;
   /** Set when a previous PATCH succeeded but `reload_channels` failed. */
@@ -78,6 +86,12 @@ export default function AgentsPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>("bots");
   const [toast, setToast] = useState("");
+  const [llmOptions, setLLMOptions] = useState<LLMOption[]>([]);
+  const [activeLLMDefault, setActiveLLMDefault] = useState<LLMSelection | null>(
+    null,
+  );
+  const [llmOptionsLoading, setLLMOptionsLoading] = useState(true);
+  const [llmOptionsError, setLLMOptionsError] = useState(false);
 
   useEffect(() => {
     if (!toast) return;
@@ -88,8 +102,9 @@ export default function AgentsPage() {
   const loadBots = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(apiUrl("/api/v1/tutorbot"));
-      setBots(await res.json());
+      const res = await apiFetch(apiUrl("/api/v1/tutorbot"));
+      const data = await res.json();
+      setBots(Array.isArray(data) ? data : (data.bots ?? []));
     } finally {
       setLoading(false);
     }
@@ -97,17 +112,34 @@ export default function AgentsPage() {
 
   const loadSouls = useCallback(async () => {
     try {
-      const res = await fetch(apiUrl("/api/v1/tutorbot/souls"));
+      const res = await apiFetch(apiUrl("/api/v1/tutorbot/souls"));
       if (res.ok) setSouls(await res.json());
     } catch {
       /* ignore */
     }
   }, []);
 
+  const loadLLMOptions = useCallback(async () => {
+    setLLMOptionsLoading(true);
+    try {
+      const payload = await listLLMOptions();
+      setLLMOptions(payload.options);
+      setActiveLLMDefault(payload.active);
+      setLLMOptionsError(false);
+    } catch {
+      setLLMOptions([]);
+      setActiveLLMDefault(null);
+      setLLMOptionsError(true);
+    } finally {
+      setLLMOptionsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     void loadBots();
     void loadSouls();
-  }, [loadBots, loadSouls]);
+    void loadLLMOptions();
+  }, [loadBots, loadSouls, loadLLMOptions]);
 
   return (
     <div className="h-full overflow-y-auto [scrollbar-gutter:stable]">
@@ -160,6 +192,10 @@ export default function AgentsPage() {
             bots={bots}
             souls={souls}
             loading={loading}
+            llmOptions={llmOptions}
+            activeLLMDefault={activeLLMDefault}
+            llmOptionsLoading={llmOptionsLoading}
+            llmOptionsError={llmOptionsError}
             onReload={loadBots}
             onToast={setToast}
             router={router}
@@ -266,7 +302,7 @@ function SchemaField({
   fieldKey,
   schema,
   value,
-  onChange,
+  onChangeAction,
   secretFields,
   path,
   showSecretFor,
@@ -275,7 +311,7 @@ function SchemaField({
   fieldKey: string;
   schema: JsonSchema;
   value: unknown;
-  onChange: (next: unknown) => void;
+  onChangeAction: (next: unknown) => void;
   secretFields: Set<string>;
   path: string;
   showSecretFor: Set<string>;
@@ -294,7 +330,7 @@ function SchemaField({
         <input
           type="checkbox"
           checked={!!value}
-          onChange={(e) => onChange(e.target.checked)}
+          onChange={(e) => onChangeAction(e.target.checked)}
           className="mt-0.5"
         />
         <span>
@@ -316,7 +352,7 @@ function SchemaField({
         <FieldLabel label={label} description={description} />
         <select
           value={String(value ?? "")}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(e) => onChangeAction(e.target.value)}
           className="rounded-lg border border-[var(--border)] bg-transparent px-3 py-1.5 text-[13px] outline-none focus:border-[var(--ring)]"
         >
           {enumValues.map((opt) => (
@@ -342,7 +378,7 @@ function SchemaField({
         <textarea
           value={lines.join("\n")}
           onChange={(e) =>
-            onChange(
+            onChangeAction(
               e.target.value
                 .split("\n")
                 .map((s) => s.trim())
@@ -378,7 +414,7 @@ function SchemaField({
             fieldKey={k}
             schema={child}
             value={obj[k] ?? defaultFor(child)}
-            onChange={(next) => onChange({ ...obj, [k]: next })}
+            onChangeAction={(next) => onChangeAction({ ...obj, [k]: next })}
             secretFields={secretFields}
             path={path ? `${path}.${k}` : k}
             showSecretFor={showSecretFor}
@@ -399,9 +435,9 @@ function SchemaField({
           value={typeof value === "number" ? value : ""}
           onChange={(e) => {
             const raw = e.target.value;
-            if (raw === "") onChange(isNullable(schema) ? null : 0);
+            if (raw === "") onChangeAction(isNullable(schema) ? null : 0);
             else
-              onChange(
+              onChangeAction(
                 v.type === "integer" ? parseInt(raw, 10) : parseFloat(raw),
               );
           }}
@@ -427,7 +463,7 @@ function SchemaField({
             const next = e.target.value;
             // Empty optional strings persist as null (matches Pydantic's
             // `Optional[str]` default and avoids "" sneaking past validators).
-            onChange(next === "" && isNullable(schema) ? null : next);
+            onChangeAction(next === "" && isNullable(schema) ? null : next);
           }}
           className={`w-full rounded-lg border border-[var(--border)] bg-transparent py-2 pl-3 ${isSecret ? "pr-10 font-mono" : "pr-3"} text-[13px] outline-none focus:border-[var(--ring)]`}
         />
@@ -496,7 +532,7 @@ function ChannelsTab({
   useEffect(() => {
     void (async () => {
       try {
-        const res = await fetch(apiUrl("/api/v1/tutorbot/channels/schema"));
+        const res = await apiFetch(apiUrl("/api/v1/tutorbot/channels/schema"));
         if (res.ok) setSchemaCatalog(await res.json());
       } catch {
         /* leave catalog null → renders fallback message */
@@ -518,7 +554,7 @@ function ChannelsTab({
     setLoadingDetail(true);
     try {
       // Edit form needs raw secrets to populate fields. Default GET masks them.
-      const res = await fetch(
+      const res = await apiFetch(
         apiUrl(`/api/v1/tutorbot/${bid}?include_secrets=true`),
       );
       if (!res.ok) return;
@@ -583,7 +619,7 @@ function ChannelsTab({
     if (!selectedBot) return;
     setSaving(true);
     try {
-      const res = await fetch(apiUrl(`/api/v1/tutorbot/${selectedBot}`), {
+      const res = await apiFetch(apiUrl(`/api/v1/tutorbot/${selectedBot}`), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ channels }),
@@ -793,7 +829,7 @@ function ChannelsTab({
                         fieldKey={k}
                         schema={child}
                         value={activeValue[k] ?? defaultFor(child)}
-                        onChange={(next) =>
+                        onChangeAction={(next) =>
                           setActiveChannelConfig({ ...activeValue, [k]: next })
                         }
                         secretFields={activeSecretSet}
@@ -819,6 +855,10 @@ function BotsTab({
   bots,
   souls,
   loading,
+  llmOptions,
+  activeLLMDefault,
+  llmOptionsLoading,
+  llmOptionsError,
   onReload,
   onToast,
   router,
@@ -826,6 +866,10 @@ function BotsTab({
   bots: BotInfo[];
   souls: SoulTemplate[];
   loading: boolean;
+  llmOptions: LLMOption[];
+  activeLLMDefault: LLMSelection | null;
+  llmOptionsLoading: boolean;
+  llmOptionsError: boolean;
   onReload: () => Promise<void>;
   onToast: (msg: string) => void;
   router: ReturnType<typeof useRouter>;
@@ -838,14 +882,17 @@ function BotsTab({
   const [formDesc, setFormDesc] = useState("");
   const [formSoulId, setFormSoulId] = useState("_custom");
   const [formSoul, setFormSoul] = useState("");
-  const [formModel, setFormModel] = useState("");
+  const [formLLMSelection, setFormLLMSelection] = useState<LLMSelection | null>(
+    null,
+  );
+  const [updatingModelBot, setUpdatingModelBot] = useState<string | null>(null);
 
   const resetForm = () => {
     setFormName("");
     setFormDesc("");
     setFormSoulId("_custom");
     setFormSoul("");
-    setFormModel("");
+    setFormLLMSelection(null);
   };
 
   const botId = useMemo(() => {
@@ -879,7 +926,7 @@ function BotsTab({
     if (!botId) return;
     setCreating(true);
     try {
-      const res = await fetch(apiUrl("/api/v1/tutorbot"), {
+      const res = await apiFetch(apiUrl("/api/v1/tutorbot"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -887,7 +934,7 @@ function BotsTab({
           name: formName.trim(),
           description: formDesc.trim(),
           persona: formSoul.trim(),
-          model: formModel.trim() || undefined,
+          llm_selection: formLLMSelection,
         }),
       });
       if (res.ok) {
@@ -910,11 +957,65 @@ function BotsTab({
     } finally {
       setCreating(false);
     }
-  }, [botId, formName, formDesc, formSoul, formModel, onReload, onToast, t]);
+  }, [
+    botId,
+    formName,
+    formDesc,
+    formSoul,
+    formLLMSelection,
+    onReload,
+    onToast,
+    t,
+  ]);
+
+  const updateBotModel = useCallback(
+    async (bid: string, selection: LLMSelection | null) => {
+      setUpdatingModelBot(bid);
+      try {
+        const res = await apiFetch(apiUrl(`/api/v1/tutorbot/${bid}`), {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            llm_selection: selection,
+            ...(selection ? {} : { model: "" }),
+          }),
+        });
+        if (res.ok) {
+          onToast(t("Model saved"));
+          await onReload();
+        } else {
+          const err = (await res.json().catch(() => ({}))) as {
+            detail?: string;
+          };
+          onToast(err.detail ?? t("Failed to save model"));
+        }
+      } catch {
+        onToast(t("Failed to save model"));
+      } finally {
+        setUpdatingModelBot(null);
+      }
+    },
+    [onReload, onToast, t],
+  );
+
+  const modelLabelFor = useCallback(
+    (bot: BotInfo) => {
+      const selected = bot.llm_selection
+        ? llmOptions.find((option) =>
+            sameLLMSelection(option, bot.llm_selection),
+          )
+        : null;
+      if (selected) return selected.model_name || selected.model;
+      if (bot.llm_selection) return t("Selected model");
+      if (bot.model) return bot.model;
+      return t("System default");
+    },
+    [llmOptions, t],
+  );
 
   const startBot = useCallback(
     async (bid: string) => {
-      const res = await fetch(apiUrl("/api/v1/tutorbot"), {
+      const res = await apiFetch(apiUrl("/api/v1/tutorbot"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ bot_id: bid }),
@@ -929,7 +1030,7 @@ function BotsTab({
 
   const stopBot = useCallback(
     async (bid: string) => {
-      const res = await fetch(apiUrl(`/api/v1/tutorbot/${bid}`), {
+      const res = await apiFetch(apiUrl(`/api/v1/tutorbot/${bid}`), {
         method: "DELETE",
       });
       if (res.ok) {
@@ -951,7 +1052,7 @@ function BotsTab({
         )
       )
         return;
-      const res = await fetch(apiUrl(`/api/v1/tutorbot/${bid}/destroy`), {
+      const res = await apiFetch(apiUrl(`/api/v1/tutorbot/${bid}/destroy`), {
         method: "DELETE",
       });
       if (res.ok) {
@@ -1077,12 +1178,22 @@ function BotsTab({
                   {t("(optional)")}
                 </span>
               </label>
-              <input
-                value={formModel}
-                onChange={(e) => setFormModel(e.target.value)}
-                placeholder={t("Uses default model if empty")}
-                className="w-full rounded-lg border border-[var(--border)] bg-transparent px-3 py-2 text-[13px] text-[var(--foreground)] outline-none focus:border-[var(--ring)] placeholder:text-[var(--muted-foreground)]/40"
+              <ModelSelector
+                options={llmOptions}
+                activeDefault={activeLLMDefault}
+                value={formLLMSelection}
+                loading={llmOptionsLoading}
+                error={llmOptionsError}
+                allowSystemDefault
+                helperText={t("Applies to this TutorBot")}
+                placement="bottom"
+                onChangeAction={setFormLLMSelection}
               />
+              <p className="mt-1 text-[11px] text-[var(--muted-foreground)]/60">
+                {t(
+                  "Choose a configured Settings model, or keep the system default.",
+                )}
+              </p>
             </div>
             <div className="flex justify-end">
               <button
@@ -1142,7 +1253,7 @@ function BotsTab({
                     ) : (
                       <span>{bot.bot_id}</span>
                     )}
-                    {bot.model && <span>· {bot.model}</span>}
+                    <span>· {modelLabelFor(bot)}</span>
                     {bot.started_at && (
                       <span>
                         ·{" "}
@@ -1155,6 +1266,19 @@ function BotsTab({
                 </div>
               </div>
               <div className="flex items-center gap-2 shrink-0">
+                <ModelSelector
+                  options={llmOptions}
+                  activeDefault={activeLLMDefault}
+                  value={bot.llm_selection ?? null}
+                  loading={llmOptionsLoading || updatingModelBot === bot.bot_id}
+                  error={llmOptionsError}
+                  allowSystemDefault
+                  helperText={t("Applies to this TutorBot")}
+                  placement="bottom"
+                  onChangeAction={(selection) =>
+                    updateBotModel(bot.bot_id, selection)
+                  }
+                />
                 {bot.running ? (
                   <>
                     <button
@@ -1256,7 +1380,7 @@ function ProfilesTab({
       if (!bid) return;
       setLoadingFiles(true);
       try {
-        const res = await fetch(apiUrl(`/api/v1/tutorbot/${bid}/files`));
+        const res = await apiFetch(apiUrl(`/api/v1/tutorbot/${bid}/files`));
         const data: Record<string, string> = await res.json();
         setFiles(data);
         setEditor(data[activeFile] ?? "");
@@ -1331,7 +1455,7 @@ function ProfilesTab({
               onToast(t("No template selected to update"));
               return false;
             }
-            const tplRes = await fetch(
+            const tplRes = await apiFetch(
               apiUrl(`/api/v1/tutorbot/souls/${sourceSoulTemplate.id}`),
               {
                 method: "PUT",
@@ -1370,7 +1494,7 @@ function ProfilesTab({
               soulId = `${baseId}-${n}`;
               n += 1;
             }
-            const tplRes = await fetch(apiUrl("/api/v1/tutorbot/souls"), {
+            const tplRes = await apiFetch(apiUrl("/api/v1/tutorbot/souls"), {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
@@ -1395,7 +1519,7 @@ function ProfilesTab({
           }
         }
 
-        const res = await fetch(
+        const res = await apiFetch(
           apiUrl(`/api/v1/tutorbot/${selectedBot}/files/${activeFile}`),
           {
             method: "PUT",
@@ -1406,7 +1530,7 @@ function ProfilesTab({
         if (res.ok) {
           setFiles((prev) => ({ ...prev, [activeFile]: editor }));
           if (activeFile === "SOUL.md") {
-            const personaRes = await fetch(
+            const personaRes = await apiFetch(
               apiUrl(`/api/v1/tutorbot/${selectedBot}`),
               {
                 method: "PATCH",
@@ -1806,7 +1930,7 @@ function SoulsTab({
     if (!editing) return;
     setSaving(true);
     try {
-      const res = await fetch(apiUrl(`/api/v1/tutorbot/souls/${editing}`), {
+      const res = await apiFetch(apiUrl(`/api/v1/tutorbot/souls/${editing}`), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: editName.trim(), content: editContent }),
@@ -1831,7 +1955,7 @@ function SoulsTab({
     if (!id) return;
     setSaving(true);
     try {
-      const res = await fetch(apiUrl("/api/v1/tutorbot/souls"), {
+      const res = await apiFetch(apiUrl("/api/v1/tutorbot/souls"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, name, content: newContent }),
@@ -1854,7 +1978,7 @@ function SoulsTab({
     async (soul: SoulTemplate) => {
       if (!window.confirm(t('Delete soul "{{name}}"?', { name: soul.name })))
         return;
-      const res = await fetch(apiUrl(`/api/v1/tutorbot/souls/${soul.id}`), {
+      const res = await apiFetch(apiUrl(`/api/v1/tutorbot/souls/${soul.id}`), {
         method: "DELETE",
       });
       if (res.ok) {

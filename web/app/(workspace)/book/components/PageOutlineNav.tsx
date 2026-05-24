@@ -108,7 +108,13 @@ export default function PageOutlineNav({
   // Default: expanded. Reset whenever the page changes.
   const [collapsed, setCollapsed] = useState(false);
   useEffect(() => {
-    setCollapsed(false);
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (!cancelled) setCollapsed(false);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [resetKey]);
 
   // Track which block is currently in view for active highlight.

@@ -13,6 +13,8 @@ import {
 import type { KnowledgeUploadPolicy } from "@/lib/knowledge-api";
 import {
   formatKnowledgeTimestamp,
+  kbIsReadOnly,
+  kbResourceRef,
   type KnowledgeBase,
 } from "@/lib/knowledge-helpers";
 import type { TaskState } from "@/hooks/useKnowledgeProgress";
@@ -103,11 +105,14 @@ export default function KnowledgeBaseDetail({
     : t("Default embedding");
   const updatedLabel =
     formatKnowledgeTimestamp(meta.last_updated) || t("Unknown time");
+  const lastIndexedLabel = formatKnowledgeTimestamp(meta.last_indexed_at);
 
   const isReindexingLocally =
     task?.kind === "reindex" && task.executing === true;
 
   const fullBleed = FULL_BLEED_SECTIONS.has(section);
+  const readOnly = kbIsReadOnly(kb);
+  const kbRef = kbResourceRef(kb);
 
   return (
     <main className="flex h-full flex-1 flex-col overflow-hidden bg-[var(--background)]">
@@ -125,6 +130,11 @@ export default function KnowledgeBaseDetail({
                   {t("Default")}
                 </span>
               )}
+              {kb.assigned && (
+                <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:text-emerald-300">
+                  {kb.provenance_label || t("Assigned by admin")}
+                </span>
+              )}
               <KbStatusBadge
                 kb={kb}
                 isReindexingLocally={isReindexingLocally}
@@ -132,6 +142,9 @@ export default function KnowledgeBaseDetail({
             </div>
             <p className="mt-1 text-[12px] text-[var(--muted-foreground)]">
               {provider} · {embeddingLabel} · {t("Updated")} {updatedLabel}
+              {lastIndexedLabel
+                ? ` · ${t("Last indexed")} ${lastIndexedLabel}`
+                : ""}
             </p>
           </div>
         </div>
@@ -162,7 +175,7 @@ export default function KnowledgeBaseDetail({
       {/* Body */}
       <div className="min-h-0 flex-1 overflow-hidden">
         {section === "files" ? (
-          <KbFilesTab key={kb.name} kb={kb} task={task} />
+          <KbFilesTab key={kbRef} kb={kb} task={task} />
         ) : (
           <div className="h-full overflow-y-auto px-6 py-5">
             <div className={fullBleed ? "" : "mx-auto max-w-3xl"}>
@@ -173,21 +186,29 @@ export default function KnowledgeBaseDetail({
                   task={task}
                   history={history}
                   onClearHistory={() => onClearHistory(kb.name)}
-                  onUpload={(files) => onUpload(kb.name, files)}
+                  onUpload={(files) =>
+                    readOnly ? Promise.resolve() : onUpload(kbRef, files)
+                  }
                 />
               )}
               {section === "versions" && (
                 <KbIndexVersionsSection
                   kb={kb}
                   task={task}
-                  onReindex={() => onReindex(kb.name)}
+                  onReindex={() =>
+                    readOnly ? Promise.resolve() : onReindex(kbRef)
+                  }
                 />
               )}
               {section === "settings" && (
                 <KbSettingsSection
                   kb={kb}
-                  onSetDefault={() => onSetDefault(kb.name)}
-                  onDelete={() => onDelete(kb.name)}
+                  onSetDefault={() =>
+                    readOnly ? Promise.resolve() : onSetDefault(kbRef)
+                  }
+                  onDelete={() =>
+                    readOnly ? Promise.resolve() : onDelete(kbRef)
+                  }
                 />
               )}
             </div>

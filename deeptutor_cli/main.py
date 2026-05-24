@@ -76,7 +76,7 @@ def run_capability(
     kb: list[str] = typer.Option([], "--kb", help="Knowledge base name."),
     notebook_ref: list[str] = typer.Option([], "--notebook-ref", help="Notebook references."),
     history_ref: list[str] = typer.Option([], "--history-ref", help="Referenced session ids."),
-    language: str = typer.Option("zh", "--language", "-l", help="Response language."),
+    language: str = typer.Option("en", "--language", "-l", help="Response language."),
     config: list[str] = typer.Option([], "--config", help="Capability config key=value."),
     config_json: str | None = typer.Option(
         None, "--config-json", help="Capability config as JSON."
@@ -101,6 +101,19 @@ def run_capability(
         history_refs=history_ref,
     )
     maybe_run(run_turn_and_render(app=DeepTutorApp(), request=request, fmt=fmt))
+
+
+@app.command()
+def start() -> None:
+    """Launch backend + frontend together."""
+    from pathlib import Path
+    import subprocess
+    import sys
+
+    script = str(Path(__file__).resolve().parent.parent / "scripts" / "start_web.py")
+    result = subprocess.run([sys.executable, script], check=False)
+    if result.returncode:
+        raise typer.Exit(code=result.returncode)
 
 
 @app.command()

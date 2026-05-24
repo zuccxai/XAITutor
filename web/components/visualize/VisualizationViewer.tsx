@@ -125,16 +125,16 @@ function HtmlRenderer({ html }: { html: string }) {
 function SvgRenderer({ svg }: { svg: string }) {
   const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
-  const [error, setError] = useState<string | null>(null);
 
-  const sanitizedSvg = useMemo(() => {
+  const { sanitizedSvg, error } = useMemo(() => {
     const trimmed = svg.trim();
     if (!trimmed.startsWith("<svg")) {
-      setError(t("Invalid SVG: does not start with <svg"));
-      return "";
+      return {
+        sanitizedSvg: "",
+        error: t("Invalid SVG: does not start with <svg"),
+      };
     }
-    setError(null);
-    return trimmed;
+    return { sanitizedSvg: trimmed, error: null };
   }, [svg, t]);
 
   if (error) {

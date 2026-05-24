@@ -19,7 +19,7 @@ import logging
 from pathlib import Path
 import re
 
-from deeptutor.knowledge import KnowledgeBaseManager
+from deeptutor.knowledge.manager import KnowledgeBaseManager
 
 from .models import Book
 from .storage import BookStorage, get_book_storage
@@ -41,15 +41,45 @@ def _hash_file(path: Path) -> str:
     return f"{path.name}:{int(stat.st_mtime)}:{stat.st_size}"
 
 
-def fingerprint_kb(kb_name: str, manager: KnowledgeBaseManager | None = None) -> str:
-    """Return a deterministic fingerprint for the *raw* docs of a KB.
+def _resolve_fingerprint_target(
+    kb_ref: str, manager: KnowledgeBaseManager | None
+) -> tuple[KnowledgeBaseManager, str] | None:
+    """解析用于指纹计算的知识库目录。
 
-    Returns ``""`` when the KB does not exist (so callers can detect deletion).
+    输入：
+        kb_ref: 前端或图书清单保存的知识库名称、资源 ID。
+        manager: 调用方显式指定的知识库管理器。
+    输出：
+        返回可读取该知识库的 manager 与物理名称；无权限或不存在时返回 None。
     """
-    mgr = manager or KnowledgeBaseManager()
-    if kb_name not in mgr.list_knowledge_bases():
+    if manager is not None:
+        return manager, kb_ref
+    try:
+        from deeptutor.multi_user.knowledge_access import manager_for_resource, resolve_kb
+
+        resource = resolve_kb(kb_ref, require_write=False)
+        return manager_for_resource(resource), resource.name
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("Could not resolve knowledge base %s for fingerprint: %s", kb_ref, exc)
+        return None
+
+
+def fingerprint_kb(kb_name: str, manager: KnowledgeBaseManager | None = None) -> str:
+    """计算知识库原始文档目录的确定性指纹。
+
+    输入：
+        kb_name: 知识库名称或带作用域的资源 ID。
+        manager: 可选的知识库管理器；传入时按该 manager 解析裸名称。
+    输出：
+        返回 raw 文档目录指纹；无权限、不存在或无文档时返回空字符串。
+    """
+    target = _resolve_fingerprint_target(kb_name, manager)
+    if target is None:
         return ""
-    base_dir: Path = mgr.base_dir / kb_name / "raw"
+    mgr, physical_name = target
+    if physical_name not in mgr.list_knowledge_bases():
+        return ""
+    base_dir: Path = mgr.base_dir / physical_name / "raw"
     if not base_dir.exists():
         return ""
     parts: list[str] = []
@@ -68,8 +98,17 @@ def fingerprint_kb(kb_name: str, manager: KnowledgeBaseManager | None = None) ->
 def fingerprint_kbs(
     kb_names: list[str], manager: KnowledgeBaseManager | None = None
 ) -> dict[str, str]:
-    mgr = manager or KnowledgeBaseManager()
-    return {name: fingerprint_kb(name, manager=mgr) for name in kb_names}
+    """批量计算知识库指纹。
+
+    输入：
+        kb_names: 知识库名称或资源 ID 列表。
+        manager: 可选的知识库管理器；传入时所有名称都按该 manager 解析。
+    输出：
+        返回以原始输入为 key 的指纹映射。
+    """
+    if manager is not None:
+        return {name: fingerprint_kb(name, manager=manager) for name in kb_names}
+    return {name: fingerprint_kb(name) for name in kb_names}
 
 
 # ─────────────────────────────────────────────────────────────────────────────
