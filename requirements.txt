@@ -19,4 +19,6 @@
 # This file installs the full server runtime (CLI + API + TutorBot).
 # abcdef
 
+# pip install -e .
+
 -r requirements/tutorbot.txt
