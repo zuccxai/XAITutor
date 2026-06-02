@@ -17,7 +17,7 @@
 #   pip install -e ".[all]"            # Everything
 #
 # This file installs the full server runtime (CLI + API + TutorBot).
-# pip install -e .
+# 1
 
 # pip install -e .
 
