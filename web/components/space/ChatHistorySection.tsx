@@ -32,7 +32,9 @@ export default function ChatHistorySection() {
   }, []);
 
   useEffect(() => {
-    void load(true);
+    queueMicrotask(() => {
+      void load(true);
+    });
   }, [load]);
 
   const filteredSessions = useMemo(() => {

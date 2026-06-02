@@ -47,6 +47,8 @@ interface MyAccessResponse {
 interface AuthStatusResponse {
   enabled?: boolean;
   authenticated?: boolean;
+  role?: string | null;
+  is_admin?: boolean;
 }
 
 export async function listKnowledgeBases(_options?: { force?: boolean }) {
@@ -73,9 +75,12 @@ export async function listKnowledgeBases(_options?: { force?: boolean }) {
   }
 
   const accessData = (await accessResponse.json()) as MyAccessResponse;
-  return Array.isArray(accessData?.knowledge_bases)
+  const items = Array.isArray(accessData?.knowledge_bases)
     ? accessData.knowledge_bases
     : [];
+  // 后端的 /multi-user/me/access 已经按当前用户做 ACL 过滤；
+  // 前端直接使用可见清单，避免因旧字段缺失误删已授权知识库。
+  return items;
 }
 
 export async function listRagProviders(options?: { force?: boolean }) {

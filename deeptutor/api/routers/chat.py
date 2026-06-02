@@ -10,7 +10,7 @@ import logging
 
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 
-from deeptutor.agents.chat import ChatAgent, SessionManager
+from deeptutor.agents.chat import ChatAgent, get_session_manager
 from deeptutor.services.config import PROJECT_ROOT, load_config_with_main
 from deeptutor.services.llm.config import get_llm_config
 from deeptutor.services.settings.interface_settings import get_ui_language
@@ -21,10 +21,6 @@ log_dir = config.get("paths", {}).get("user_log_dir") or config.get("logging", {
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-
-# Initialize session manager
-session_manager = SessionManager()
-
 
 # =============================================================================
 # REST Endpoints for Session Management
@@ -42,6 +38,7 @@ async def list_sessions(limit: int = 20):
     Returns:
         List of session summaries
     """
+    session_manager = get_session_manager()
     return session_manager.list_sessions(limit=limit, include_messages=False)
 
 
@@ -56,6 +53,7 @@ async def get_session(session_id: str):
     Returns:
         Complete session data including messages
     """
+    session_manager = get_session_manager()
     session = session_manager.get_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -73,6 +71,7 @@ async def delete_session(session_id: str):
     Returns:
         Success message
     """
+    session_manager = get_session_manager()
     if session_manager.delete_session(session_id):
         return {"status": "deleted", "session_id": session_id}
     raise HTTPException(status_code=404, detail="Session not found")
@@ -107,6 +106,7 @@ async def websocket_chat(websocket: WebSocket):
     - {"type": "error", "message": str}                # Error message
     """
     await websocket.accept()
+    session_manager = get_session_manager()
 
     try:
         while True:

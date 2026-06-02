@@ -143,7 +143,9 @@ export default function MemorySection() {
   }, [t]);
 
   useEffect(() => {
-    void loadMemory();
+    queueMicrotask(() => {
+      void loadMemory();
+    });
   }, [loadMemory]);
 
   const saveMemory = useCallback(async () => {

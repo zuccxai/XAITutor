@@ -59,7 +59,9 @@ export default function KbDocumentList({
   );
 
   useEffect(() => {
-    void load(refreshKey > 0);
+    queueMicrotask(() => {
+      void load(refreshKey > 0);
+    });
   }, [load, refreshKey]);
 
   if (collapsed) {

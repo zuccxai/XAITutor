@@ -21,6 +21,6 @@ Usage:
 
 from .agentic_pipeline import AgenticChatPipeline
 from .chat_agent import ChatAgent
-from .session_manager import SessionManager
+from .session_manager import SessionManager, get_session_manager
 
-__all__ = ["AgenticChatPipeline", "ChatAgent", "SessionManager"]
+__all__ = ["AgenticChatPipeline", "ChatAgent", "SessionManager", "get_session_manager"]

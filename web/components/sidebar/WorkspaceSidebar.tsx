@@ -42,7 +42,9 @@ export default function WorkspaceSidebar() {
   }, []);
 
   useEffect(() => {
-    void refreshSessions();
+    queueMicrotask(() => {
+      void refreshSessions();
+    });
   }, [refreshSessions, sidebarRefreshToken]);
 
   const orderedSessions = sessions

@@ -37,7 +37,9 @@ export default function UtilitySidebar() {
   }, []);
 
   useEffect(() => {
-    void refreshSessions();
+    queueMicrotask(() => {
+      void refreshSessions();
+    });
   }, [refreshSessions]);
 
   const handleNewChat = useCallback(() => {
@@ -82,7 +84,7 @@ export default function UtilitySidebar() {
         setActiveSessionId(null);
       }
     },
-    [activeSessionId, setActiveSessionId],
+    [activeSessionId, setActiveSessionId, t],
   );
 
   return (

@@ -51,6 +51,7 @@ export default function HistorySessionPicker({
 
     let mounted = true;
     const load = async () => {
+      if (!mounted) return;
       setLoading(true);
       try {
         const data = await listSessions(200, 0, { force: true });
@@ -64,7 +65,9 @@ export default function HistorySessionPicker({
       }
     };
 
-    void load();
+    queueMicrotask(() => {
+      void load();
+    });
     return () => {
       mounted = false;
     };

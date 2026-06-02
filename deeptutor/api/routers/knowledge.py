@@ -440,7 +440,7 @@ async def run_initialization_task(initializer: KnowledgeBaseInitializer, task_id
                 index_action="create",
             )
 
-            manager = get_kb_manager()
+            manager = KnowledgeBaseManager(base_dir=str(initializer.base_dir))
             manager.update_kb_status(
                 name=initializer.kb_name,
                 status="ready",
@@ -476,7 +476,7 @@ async def run_initialization_task(initializer: KnowledgeBaseInitializer, task_id
 
             task_manager.update_task_status(task_id, "error", error=error_msg)
 
-            manager = get_kb_manager()
+            manager = KnowledgeBaseManager(base_dir=str(initializer.base_dir))
             manager.update_kb_status(
                 name=initializer.kb_name,
                 status="error",
@@ -571,7 +571,7 @@ async def run_upload_processing_task(
 
             if folder_id and processed_files:
                 try:
-                    manager = get_kb_manager()
+                    manager = KnowledgeBaseManager(base_dir=base_dir)
                     manager.update_folder_sync_state(
                         kb_name, folder_id, [str(f) for f in processed_files]
                     )
@@ -1295,7 +1295,7 @@ async def run_reindex_task(kb_name: str, base_dir: str, task_id: str, signature_
                     meta_err,
                 )
 
-            manager = get_kb_manager()
+            manager = KnowledgeBaseManager(base_dir=base_dir)
             manager.update_kb_status(
                 name=kb_name,
                 status="ready",

@@ -13,7 +13,7 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 
-from deeptutor.agents.solve import MainSolver, SolverSessionManager
+from deeptutor.agents.solve import MainSolver, get_solver_session_manager
 from deeptutor.api.utils.task_id_manager import TaskIDManager
 from deeptutor.capabilities.deep_solve import DeepSolveCapability
 from deeptutor.logging import bind_log_context, capture_process_logs
@@ -28,10 +28,6 @@ log_dir = config.get("paths", {}).get("user_log_dir") or config.get("logging", {
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-
-# Initialize session manager
-solver_session_manager = SolverSessionManager()
-
 
 # =============================================================================
 # REST Endpoints for Session Management
@@ -49,6 +45,7 @@ async def list_solver_sessions(limit: int = 20):
     Returns:
         List of session summaries
     """
+    solver_session_manager = get_solver_session_manager()
     return solver_session_manager.list_sessions(limit=limit, include_messages=False)
 
 
@@ -63,6 +60,7 @@ async def get_solver_session(session_id: str):
     Returns:
         Complete session data including messages
     """
+    solver_session_manager = get_solver_session_manager()
     session = solver_session_manager.get_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -80,6 +78,7 @@ async def delete_solver_session(session_id: str):
     Returns:
         Success message
     """
+    solver_session_manager = get_solver_session_manager()
     if solver_session_manager.delete_session(session_id):
         return {"status": "deleted", "session_id": session_id}
     raise HTTPException(status_code=404, detail="Session not found")
@@ -93,6 +92,7 @@ async def delete_solver_session(session_id: str):
 @router.websocket("/solve")
 async def websocket_solve(websocket: WebSocket):
     await websocket.accept()
+    solver_session_manager = get_solver_session_manager()
 
     task_manager = TaskIDManager.get_instance()
     connection_closed = asyncio.Event()

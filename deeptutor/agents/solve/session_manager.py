@@ -14,6 +14,7 @@ Now inherits from BaseSessionManager for consistent behavior across all modules.
 
 from typing import Any
 
+from deeptutor.services.path_service import get_path_service
 from deeptutor.services.session import BaseSessionManager
 
 
@@ -201,16 +202,25 @@ class SolverSessionManager(BaseSessionManager):
         return self.update_session(session_id, token_stats=token_stats)
 
 
-# Singleton instance for convenience
-_solver_session_manager: SolverSessionManager | None = None
+# 按 workspace 路径缓存实例；多用户模式下认证后 PathService 会切换，
+# 进程级单例会把普通用户和管理员 workspace 混在一起。
+_solver_session_managers: dict[str, SolverSessionManager] = {}
 
 
 def get_solver_session_manager() -> SolverSessionManager:
-    """Get or create the global SolverSessionManager instance."""
-    global _solver_session_manager
-    if _solver_session_manager is None:
-        _solver_session_manager = SolverSessionManager()
-    return _solver_session_manager
+    """获取当前用户作用域下的解题会话管理器。
+
+    输入：
+        无；当前用户来自请求上下文。
+    输出：
+        返回绑定到当前用户 sessions.json 的 SolverSessionManager。
+    """
+    key = str(get_path_service().get_solve_session_file().resolve())
+    manager = _solver_session_managers.get(key)
+    if manager is None:
+        manager = SolverSessionManager()
+        _solver_session_managers[key] = manager
+    return manager
 
 
 __all__ = ["SolverSessionManager", "get_solver_session_manager"]

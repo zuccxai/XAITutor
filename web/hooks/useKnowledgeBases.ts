@@ -124,7 +124,9 @@ export function useKnowledgeBases() {
   }, [load]);
 
   useEffect(() => {
-    void load();
+    queueMicrotask(() => {
+      void load();
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

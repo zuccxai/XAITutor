@@ -14,6 +14,7 @@ Now inherits from BaseSessionManager for consistent behavior across all modules.
 
 from typing import Any
 
+from deeptutor.services.path_service import get_path_service
 from deeptutor.services.session import BaseSessionManager
 
 
@@ -164,16 +165,25 @@ class SessionManager(BaseSessionManager):
         )
 
 
-# Singleton instance for convenience
-_session_manager: SessionManager | None = None
+# 按 workspace 路径缓存实例；多用户模式下认证后 PathService 会切换，
+# 进程级单例会把普通用户和管理员 workspace 混在一起。
+_session_managers: dict[str, SessionManager] = {}
 
 
 def get_session_manager() -> SessionManager:
-    """Get or create the global SessionManager instance."""
-    global _session_manager
-    if _session_manager is None:
-        _session_manager = SessionManager()
-    return _session_manager
+    """获取当前用户作用域下的 Chat 会话管理器。
+
+    输入：
+        无；当前用户来自请求上下文。
+    输出：
+        返回绑定到当前用户 sessions.json 的 SessionManager。
+    """
+    key = str(get_path_service().get_chat_session_file().resolve())
+    manager = _session_managers.get(key)
+    if manager is None:
+        manager = SessionManager()
+        _session_managers[key] = manager
+    return manager
 
 
 __all__ = ["SessionManager", "get_session_manager"]

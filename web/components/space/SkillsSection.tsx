@@ -83,7 +83,9 @@ export default function SkillsSection() {
   }, []);
 
   useEffect(() => {
-    void load();
+    queueMicrotask(() => {
+      void load();
+    });
   }, [load]);
 
   const filteredSkills = useMemo(() => {

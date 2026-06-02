@@ -92,8 +92,10 @@ export default function QuestionBankSection() {
   );
 
   useEffect(() => {
-    void loadItems(filter, activeCategoryId);
-    void loadCategoriesData();
+    queueMicrotask(() => {
+      void loadItems(filter, activeCategoryId);
+      void loadCategoriesData();
+    });
   }, [filter, activeCategoryId, loadItems, loadCategoriesData]);
 
   const handleToggleBookmark = useCallback(

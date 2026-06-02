@@ -2,6 +2,7 @@
 
 import logging
 import os
+from collections.abc import AsyncGenerator
 
 from fastapi import APIRouter, Cookie, Depends, Header, HTTPException, Response, status
 from pydantic import BaseModel, field_validator
@@ -146,7 +147,7 @@ def _extract_token(authorization: str | None, dt_token: str | None) -> str | Non
 # ---------------------------------------------------------------------------
 
 
-def require_auth(
+def _require_auth_unscoped(
     authorization: str | None = Header(default=None, alias="Authorization"),
     dt_token: str | None = Cookie(default=None),
 ) -> TokenPayload | None:
@@ -191,6 +192,59 @@ def require_auth(
 
     set_current_user(user_from_token_payload(payload))
     return payload
+
+
+# 输入：Authorization 请求头或 dt_token Cookie；输出：yield 当前 TokenPayload，
+# 并在请求结束后清理当前用户上下文。
+async def require_auth(
+    authorization: str | None = Header(default=None, alias="Authorization"),
+    dt_token: str | None = Cookie(default=None),
+) -> AsyncGenerator[TokenPayload | None, None]:
+    """校验当前请求身份，并在请求结束时清理用户上下文。
+
+    输入：
+        authorization: 可选的 ``Authorization: Bearer <token>`` 请求头。
+        dt_token: 可选的登录 Cookie。
+    输出：
+        通过 FastAPI dependency yield 当前 TokenPayload；未开启认证时 yield None。
+        认证失败时抛出 HTTP 401。
+    """
+    from deeptutor.multi_user.context import reset_current_user, set_current_user
+
+    if not AUTH_ENABLED:
+        from deeptutor.multi_user.paths import local_admin_user
+
+        context_token = set_current_user(local_admin_user())
+        try:
+            yield None
+        finally:
+            reset_current_user(context_token)
+        return
+
+    token = _extract_token(authorization, dt_token)
+
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    payload = decode_token(token)
+    if not payload:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    from deeptutor.multi_user.context import user_from_token_payload
+
+    context_token = set_current_user(user_from_token_payload(payload))
+    try:
+        yield payload
+    finally:
+        reset_current_user(context_token)
 
 
 def require_admin(
