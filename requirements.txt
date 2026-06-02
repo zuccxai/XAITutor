@@ -18,4 +18,6 @@
 #
 # This file installs the full server runtime (CLI + API + TutorBot).
 
+# pip install -e .
+
 -r requirements/tutorbot.txt
