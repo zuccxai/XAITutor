@@ -17,6 +17,5 @@
 #   pip install -e ".[all]"            # Everything
 #
 # This file installs the full server runtime (CLI + API + TutorBot).
-# xufeng
 
 -r requirements/tutorbot.txt
