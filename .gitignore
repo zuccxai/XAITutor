@@ -14,6 +14,7 @@ deeptutor/services/rag/eg_only_for_analysis/
 docs/
 .github
 .claude
+.codegraph
 
 # LaTeX build artifacts
 *.aux
